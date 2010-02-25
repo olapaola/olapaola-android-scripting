@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc.
+ * Copyright (C) 2010 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -14,22 +14,23 @@
  * the License.
  */
 
-package com.google.ase;
+package com.google.ase.language;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
-
-public class ScriptKiller extends Activity {
+/**
+ * Represents the BeanShell programming language.
+ * 
+ * @author igor.v.karp@gmail.com (Igor Karp)
+ */
+public class BeanShellLanguage extends Language {
 
   @Override
-  protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    if (getIntent().getAction().equals(Constants.ACTION_KILL_SERVICE)) {
-      stopService(new Intent(this, ScriptService.class));
-      stopService(new Intent(this, AndroidProxyService.class));
-    }
-    finish();
+  protected String getImportStatement() {
+    // FIXME(igor.v.karp): this is interpreter specific
+    return "source(\"/sdcard/ase/extras/bsh/android.bsh\");\n";
   }
 
+  @Override
+  protected String getRpcReceiverDeclaration(String rpcReceiver) {
+    return rpcReceiver + " = Android();\n";
+  }
 }

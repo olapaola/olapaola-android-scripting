@@ -41,7 +41,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import android.util.Log;
+import com.google.ase.AseLog;
 
 /**
  * A JSON RPC server that forwards RPC calls to a specified receiver object.
@@ -50,7 +50,6 @@ import android.util.Log;
  */
 public class JsonRpcServer {
 
-  static final String TAG = "JsonRpcServer";
   private ServerSocket mServer;
 
   /**
@@ -104,6 +103,25 @@ public class JsonRpcServer {
     mReceivers.add(receiver);
   }
 
+  /**
+   * Builds a map of method names to {@link RpcInfo} objects.
+   *
+   * @param receiver
+   *          the {@link RpcReceiver} class to inspect
+   */
+  public static Map<String, RpcInfo> buildRpcInfoMap(final Class<? extends RpcReceiver> receiver) {
+    Map<String, RpcInfo> rpcs = new ConcurrentHashMap<String, RpcInfo>();
+    for (Method m : receiver.getMethods()) {
+      if (m.getAnnotation(Rpc.class) != null) {
+        // TODO(damonkohler): This doesn't build valid RpcInfo objects since receiver is a class not
+        // an instance.
+        rpcs.put(m.getName(), new RpcInfo(receiver, m, RpcInvokerFactory.createInvoker(m
+            .getGenericParameterTypes())));
+      }
+    }
+    return rpcs;
+  }
+
   private InetAddress getPublicInetAddress() throws UnknownHostException, SocketException {
     Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
     for (NetworkInterface netint : Collections.list(nets)) {
@@ -128,7 +146,7 @@ public class JsonRpcServer {
       address = InetAddress.getLocalHost();
       mServer = new ServerSocket(0 /* port */, 5 /* backlog */, address);
     } catch (Exception e) {
-      Log.e(TAG, "Failed to start server.", e);
+      AseLog.e("Failed to start server.", e);
       return null;
     }
     int port = start(address);
@@ -146,7 +164,7 @@ public class JsonRpcServer {
       address = getPublicInetAddress();
       mServer = new ServerSocket(0 /* port */, 5 /* backlog */, address);
     } catch (Exception e) {
-      Log.e(TAG, "Failed to start server.", e);
+      AseLog.e("Failed to start server.", e);
       return null;
     }
     int port = start(address);
@@ -160,7 +178,6 @@ public class JsonRpcServer {
     // Interrupt the server thread to ensure that beyond this point there are
     // no incoming requests.
     mServerThread.interrupt();
-
     // Since the server thread is not running, the mNetworkThreads set can only
     // shrink from this point onward. We can just cancel all of the running
     // threads. In the worst case, one of the running threads will already have
@@ -169,12 +186,12 @@ public class JsonRpcServer {
     for (Thread networkThread : mNetworkThreads) {
       networkThread.interrupt();
     }
-
     // Notify all RPC receiving objects. They may have to clean up some of
     // their state.
     for (RpcReceiver receiver : mReceivers) {
       receiver.shutdown();
     }
+    AseLog.v("RPC server shutdown.");
   }
 
   private int start(InetAddress address) {
@@ -184,18 +201,16 @@ public class JsonRpcServer {
         while (true) {
           try {
             Socket sock = mServer.accept();
-            Log.v(TAG, "Connected!");
+            AseLog.v("Connected!");
             startConnectionThread(sock);
           } catch (IOException e) {
-            Log.e(TAG, "Failed to accept connection.", e);
+            AseLog.e("Failed to accept connection.", e);
           }
         }
       }
     };
-
     mServerThread.start();
-
-    Log.v(TAG, "Bound to " + address.getHostAddress() + ":" + mServer.getLocalPort());
+    AseLog.v("Bound to " + address.getHostAddress() + ":" + mServer.getLocalPort());
     return mServer.getLocalPort();
   }
 
@@ -203,20 +218,29 @@ public class JsonRpcServer {
     final Thread networkThread = new Thread() {
       @Override
       public void run() {
+        AseLog.v("RPC thread " + getId() + " started.");
         try {
           BufferedReader in = new BufferedReader(new InputStreamReader(sock.getInputStream()));
           PrintWriter out = new PrintWriter(sock.getOutputStream(), true);
           String data;
           while ((data = in.readLine()) != null) {
-            Log.v(TAG, "Received: " + data.toString());
-            JSONObject result = call(data);
-            out.write(result.toString() + "\n");
-            out.flush();
+            AseLog.v("Received: " + data.toString());
+            JSONObject result = JsonRpcResult.empty();
+            try {
+              result = call(data);
+            } catch (Exception e) {
+              result = JsonRpcResult.error(e.getMessage());
+              throw e;
+            } finally {
+              out.write(result.toString() + "\n");
+              out.flush();
+            }
           }
         } catch (Exception e) {
-          Log.e(TAG, "Communication with client failed.", e);
+          AseLog.e("Server error.", e);
         } finally {
           mNetworkThreads.remove(this);
+          AseLog.v("RPC thread " + getId() + " died.");
         }
       }
     };
@@ -272,15 +296,13 @@ public class JsonRpcServer {
       throws JSONException {
     JSONObject result = null;
     final RpcInfo rpcInfo = mKnownRpcs.get(methodName);
-
     if (rpcInfo == null) {
       result = JsonRpcResult.error("Unknown RPC.");
     } else {
       result = rpcInfo.invoke(params);
     }
-
     result.put("id", id);
-    Log.v(TAG, "Sending reply " + result.toString());
+    AseLog.v("Sending reply " + result.toString());
     return result;
   }
 }

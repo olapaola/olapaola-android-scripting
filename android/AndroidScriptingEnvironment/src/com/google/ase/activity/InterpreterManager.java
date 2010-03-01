@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.google.ase;
+package com.google.ase.activity;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,6 +42,10 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 
+import com.google.ase.AseAnalytics;
+import com.google.ase.AseLog;
+import com.google.ase.Constants;
+import com.google.ase.R;
 import com.google.ase.interpreter.Interpreter;
 import com.google.ase.interpreter.InterpreterInstaller;
 import com.google.ase.interpreter.InterpreterUninstaller;
@@ -56,7 +60,7 @@ public class InterpreterManager extends ListActivity {
     INSTALL_INTERPRETER, UNINSTALL_INTERPRETER
   }
 
-  private HashMap<Integer, Interpreter> installerMenuIds;
+  private HashMap<Integer, Interpreter> mInstallerMenuIds;
 
   private static enum MenuId {
     HELP, ADD, DELETE, NETWORK;
@@ -115,24 +119,35 @@ public class InterpreterManager extends ListActivity {
     buildMenuIdMaps();
     buildInstallLanguagesMenu(menu);
     menu.add(Menu.NONE, MenuId.NETWORK.getId(), Menu.NONE, "Start Server");
-    menu.add(Menu.NONE, MenuId.HELP.getId(), Menu.NONE, "Help");
+    menu.add(Menu.NONE, MenuId.HELP.getId(), Menu.NONE, "Help").setIcon(
+        android.R.drawable.ic_menu_help);
     return true;
   }
 
   private void buildMenuIdMaps() {
-    installerMenuIds = new HashMap<Integer, Interpreter>();
+    mInstallerMenuIds = new HashMap<Integer, Interpreter>();
     int i = MenuId.values().length + Menu.FIRST;
     List<Interpreter> notInstalled = InterpreterUtils.getNotInstalledInterpreters();
     for (Interpreter interpreter : notInstalled) {
-      installerMenuIds.put(i, interpreter);
+      mInstallerMenuIds.put(i, interpreter);
       ++i;
     }
   }
 
   private void buildInstallLanguagesMenu(Menu menu) {
     if (InterpreterUtils.getNotInstalledInterpreters().size() > 0) {
-      SubMenu installMenu = menu.addSubMenu(Menu.NONE, Menu.NONE, Menu.NONE, "Add");
-      for (Entry<Integer, Interpreter> entry : installerMenuIds.entrySet()) {
+      SubMenu installMenu =
+          menu.addSubMenu(Menu.NONE, Menu.NONE, Menu.NONE, "Add").setIcon(
+              android.R.drawable.ic_menu_add);
+      List<Entry<Integer, Interpreter>> interpreters = new ArrayList<Entry<Integer, Interpreter>>();
+      interpreters.addAll(mInstallerMenuIds.entrySet());
+      Collections.sort(interpreters, new Comparator<Entry<Integer, Interpreter>>() {
+        @Override
+        public int compare(Entry<Integer, Interpreter> arg0, Entry<Integer, Interpreter> arg1) {
+          return arg0.getValue().getNiceName().compareTo(arg1.getValue().getNiceName());
+        }
+      });
+      for (Entry<Integer, Interpreter> entry : interpreters) {
         installMenu.add(Menu.NONE, entry.getKey(), Menu.NONE, entry.getValue().getNiceName());
       }
     }
@@ -156,9 +171,9 @@ public class InterpreterManager extends ListActivity {
         }
       });
       dialog.show();
-    } else if (installerMenuIds.containsKey(itemId)) {
+    } else if (mInstallerMenuIds.containsKey(itemId)) {
       // Install selected interpreter.
-      Interpreter interpreter = installerMenuIds.get(itemId);
+      Interpreter interpreter = mInstallerMenuIds.get(itemId);
       installInterpreter(interpreter);
     }
     return super.onOptionsItemSelected(item);

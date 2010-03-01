@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.google.ase;
+package com.google.ase.activity;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -43,6 +43,12 @@ import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.Toast;
 
+import com.google.ase.AseAnalytics;
+import com.google.ase.AseLog;
+import com.google.ase.Constants;
+import com.google.ase.IntentBuilders;
+import com.google.ase.R;
+import com.google.ase.ScriptStorageAdapter;
 import com.google.ase.interpreter.Interpreter;
 import com.google.ase.interpreter.InterpreterUtils;
 
@@ -122,14 +128,15 @@ public class ScriptManager extends ListActivity {
   @Override
   public boolean onPrepareOptionsMenu(Menu menu) {
     super.onPrepareOptionsMenu(menu);
-    // TODO(damonkohler): Would be nice if this were lazier and not done every time the menu
-    // button is pressed.
     menu.clear();
     buildMenuIdMaps();
     buildAddMenu(menu);
-    menu.add(Menu.NONE, MenuId.INTERPRETER_MANAGER.getId(), Menu.NONE, "Interpreters");
-    menu.add(Menu.NONE, MenuId.PREFERENCES.getId(), Menu.NONE, "Preferences");
-    menu.add(Menu.NONE, MenuId.HELP.getId(), Menu.NONE, "Help");
+    menu.add(Menu.NONE, MenuId.INTERPRETER_MANAGER.getId(), Menu.NONE, "Interpreters").setIcon(
+        android.R.drawable.ic_menu_more);
+    menu.add(Menu.NONE, MenuId.PREFERENCES.getId(), Menu.NONE, "Preferences").setIcon(
+        android.R.drawable.ic_menu_preferences);
+    menu.add(Menu.NONE, MenuId.HELP.getId(), Menu.NONE, "Help").setIcon(
+        android.R.drawable.ic_menu_help);
     return true;
   }
 
@@ -144,7 +151,9 @@ public class ScriptManager extends ListActivity {
   }
 
   private void buildAddMenu(Menu menu) {
-    Menu addMenu = menu.addSubMenu(Menu.NONE, Menu.NONE, Menu.NONE, "Add");
+    Menu addMenu =
+        menu.addSubMenu(Menu.NONE, Menu.NONE, Menu.NONE, "Add").setIcon(
+            android.R.drawable.ic_menu_add);
     for (Entry<Integer, Interpreter> entry : addMenuIds.entrySet()) {
       addMenu.add(Menu.NONE, entry.getKey(), Menu.NONE, entry.getValue().getNiceName());
     }
@@ -210,8 +219,6 @@ public class ScriptManager extends ListActivity {
       return;
     }
 
-    // TODO(damonkohler): To continue support for Locale plugin, will need to have a helper activity
-    // to launch the service.
     if (com.twofortyfouram.Intent.ACTION_EDIT_SETTING.equals(getIntent().getAction())) {
       Intent intent = new Intent();
       intent.putExtra(Constants.EXTRA_SCRIPT_NAME, scriptName);
@@ -252,7 +259,7 @@ public class ScriptManager extends ListActivity {
     menu.add(Menu.NONE, MenuId.EDIT.getId(), Menu.NONE, "Edit");
     menu.add(Menu.NONE, MenuId.DELETE.getId(), Menu.NONE, "Delete");
     menu.add(Menu.NONE, MenuId.ADD_SHORTCUT.getId(), Menu.NONE, "Add Shortcut");
-    menu.add(Menu.NONE, MenuId.START_SERVICE.getId(), Menu.NONE, "Start Service");
+    menu.add(Menu.NONE, MenuId.START_SERVICE.getId(), Menu.NONE, "Start in Background");
   }
 
   @SuppressWarnings("unchecked")

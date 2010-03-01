@@ -16,66 +16,55 @@
 
 package com.google.ase.facade.ui;
 
-import java.util.concurrent.CountDownLatch;
-
+import android.app.Activity;
+import android.app.Dialog;
 import android.app.ProgressDialog;
-import android.app.Service;
 
-import com.google.ase.AseLog;
+import com.google.ase.future.FutureActivityTask;
+import com.google.ase.future.FutureIntent;
 
 /**
  * Wrapper class for progress dialog running in separate thread
  *
  * @author MeanEYE.rcf (meaneye.rcf@gmail.com)
  */
-class RunnableProgressDialog implements Runnable {
+class RunnableProgressDialog extends FutureActivityTask implements RunnableDialog {
   private ProgressDialog mDialog;
-  private final Service mService;
-  private final CountDownLatch mLatch;
-  private final CountDownLatch mShowLatch;
-
-  private Integer mType = ProgressDialog.STYLE_SPINNER;
+  private final int mStyle;
+  private final int mMax;
   private final String mTitle;
   private final String mMessage;
   private final Boolean mCancelable;
+  private Activity mActivity;
 
-  public RunnableProgressDialog(final Service service, final CountDownLatch latch,
-      final CountDownLatch show_latch, final Integer dialog_type, final String title,
-      final String message, final Boolean cancelable) {
-    // Set local variables.
-    mType = dialog_type;
-    mService = service;
-    mLatch = latch;
-    mShowLatch = show_latch;
-    mDialog = null;
+  public RunnableProgressDialog(int style, int max, String title, String message, boolean cancelable) {
+    mStyle = style;
+    mMax = max;
     mTitle = title;
     mMessage = message;
     mCancelable = cancelable;
   }
 
-  /**
-   * Returns created dialog
-   *
-   * @return Object
-   */
-  public Object getDialog() {
+  @Override
+  public void run(Activity activity, FutureIntent result) {
+    mActivity = activity;
+    mDialog = new ProgressDialog(activity);
+    mDialog.setProgressStyle(mStyle);
+    mDialog.setMax(mMax);
+    mDialog.setCancelable(mCancelable);
+    mDialog.setTitle(mTitle);
+    mDialog.setMessage(mMessage);
+    mDialog.show();
+  }
+
+  @Override
+  public Dialog getDialog() {
     return mDialog;
   }
 
   @Override
-  public void run() {
-    mDialog = new ProgressDialog(mService);
-    mDialog.setProgressStyle(mType);
-    mDialog.setCancelable(mCancelable);
-    mDialog.setTitle(mTitle);
-    mDialog.setMessage(mMessage);
-    // Allow main thread to continue and wait for show signal.
-    mLatch.countDown();
-    try {
-      mShowLatch.await();
-    } catch (InterruptedException e) {
-      AseLog.e("Interrupted while waiting for handler to complete.", e);
-    }
-    mDialog.show();
+  public void dismissDialog() {
+    mDialog.dismiss();
+    mActivity.finish();
   }
 }

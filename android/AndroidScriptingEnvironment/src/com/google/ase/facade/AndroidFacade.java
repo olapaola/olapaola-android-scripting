@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 
 import android.app.Activity;
@@ -58,14 +59,14 @@ import android.text.method.PasswordTransformationMethod;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import com.google.ase.ActivityRunnable;
-import com.google.ase.AseApplication;
 import com.google.ase.AseLog;
-import com.google.ase.AseRuntimeException;
-import com.google.ase.AseServiceHelper;
 import com.google.ase.CircularBuffer;
-import com.google.ase.FutureIntent;
 import com.google.ase.R;
+import com.google.ase.activity.AseApplication;
+import com.google.ase.activity.AseServiceHelper;
+import com.google.ase.exception.AseRuntimeException;
+import com.google.ase.future.FutureActivityTask;
+import com.google.ase.future.FutureIntent;
 import com.google.ase.jsonrpc.Rpc;
 import com.google.ase.jsonrpc.RpcDefaultBoolean;
 import com.google.ase.jsonrpc.RpcDefaultInteger;
@@ -78,7 +79,7 @@ public class AndroidFacade implements RpcReceiver {
 
   private final Service mService;
   private final Handler mHandler;
-  private final AseApplication mApplication;
+  private final Queue<FutureActivityTask> mTaskQueue;
 
   private final CircularBuffer<Bundle> mEventBuffer;
   private static final int EVENT_BUFFER_LIMIT = 1024;
@@ -201,13 +202,11 @@ public class AndroidFacade implements RpcReceiver {
    *          is the {@link Context} the APIs will run under
    * @param handler
    *          is the {@link Handler} the APIs will use to communicate with the UI thread
-   * @param intent
-   *          is the {@link Intent} that was used to start the {@link Activity}
    */
-  public AndroidFacade(Service service, Handler handler, Intent intent) {
+  public AndroidFacade(Service service, Handler handler) {
     mService = service;
     mHandler = handler;
-    mApplication = (AseApplication) mService.getApplication();
+    mTaskQueue = ((AseApplication) mService.getApplication()).getTaskQueue();
     mSms = SmsManager.getDefault();
     mActivityManager = (ActivityManager) mService.getSystemService(Context.ACTIVITY_SERVICE);
     mWifi = (WifiManager) mService.getSystemService(Context.WIFI_SERVICE);
@@ -330,17 +329,19 @@ public class AndroidFacade implements RpcReceiver {
   }
 
   public Intent startActivityForResult(final Intent intent) {
-    FutureIntent result = mApplication.offerTask(new ActivityRunnable() {
+    FutureActivityTask task = new FutureActivityTask() {
       @Override
       public void run(Activity activity, FutureIntent result) {
         activity.startActivityForResult(intent, 0);
       }
-    });
+    };
+    mTaskQueue.offer(task);
     try {
       launchHelper();
     } catch (Exception e) {
       AseLog.e("Failed to launch intent.", e);
     }
+    FutureIntent result = task.getResult();
     try {
       return result.get();
     } catch (Exception e) {
@@ -440,7 +441,7 @@ public class AndroidFacade implements RpcReceiver {
 
   private String getInputFromAlertDialog(final String title, final String message,
       final boolean password) {
-    FutureIntent result = mApplication.offerTask(new ActivityRunnable() {
+    FutureActivityTask task = new FutureActivityTask() {
       @Override
       public void run(final Activity activity, final FutureIntent result) {
         final EditText input = new EditText(activity);
@@ -453,6 +454,7 @@ public class AndroidFacade implements RpcReceiver {
         alert.setMessage(message);
         alert.setView(input);
         alert.setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+          @Override
           public void onClick(DialogInterface dialog, int whichButton) {
             Intent intent = new Intent();
             intent.putExtra("result", input.getText().toString());
@@ -460,16 +462,31 @@ public class AndroidFacade implements RpcReceiver {
             activity.finish();
           }
         });
+        alert.setOnCancelListener(new DialogInterface.OnCancelListener() {
+          @Override
+          public void onCancel(DialogInterface arg0) {
+            result.set(null);
+            activity.finish();
+          }
+        });
         alert.show();
       }
-    });
+    };
+    mTaskQueue.offer(task);
+
     try {
       launchHelper();
     } catch (Exception e) {
       AseLog.e("Failed to launch intent.", e);
     }
+
+    FutureIntent result = task.getResult();
     try {
-      return result.get().getStringExtra("result");
+      if (result.get() == null) {
+        return null;
+      } else {
+        return result.get().getStringExtra("result");
+      }
     } catch (Exception e) {
       AseLog.e("Failed to display dialog.", e);
       throw new AseRuntimeException(e);

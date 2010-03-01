@@ -16,6 +16,7 @@
 
 package com.google.ase.language;
 
+import com.google.ase.jsonrpc.ParameterDescriptor;
 import com.google.ase.jsonrpc.RpcInfo;
 
 /**
@@ -56,7 +57,7 @@ public abstract class Language {
   }
   
   /** Returns the RPC call text with given parameter values. */
-  public final String getRpcText(String content, RpcInfo rpc, String[] parameters) {
+  public final String getRpcText(String content, RpcInfo rpc, ParameterDescriptor[] parameters) {
     return getMethodCallText(getRpcReceiverName(content), rpc.getName(), parameters);
   }
   
@@ -66,16 +67,60 @@ public abstract class Language {
   }
   
   /** Returns the method call text in the language.*/
-  protected String getMethodCallText(String receiver, String method, String[] parameters) {
-    StringBuilder result = new StringBuilder(receiver).append('.').append(method).append('(');
+  protected String getMethodCallText(String receiver, String method,
+      ParameterDescriptor[] parameters) {
+    StringBuilder result = new StringBuilder().append(getApplyReceiverText(receiver))
+        .append(getApplyOperatorText()).append(method).append(getLeftParametersText());
     String separator = "";
-    for (String parameter : parameters) {
-      result.append(separator).append(parameter);
-      separator = ",";
+    for (ParameterDescriptor parameter : parameters) {
+      result.append(separator).append(maybeQuote(parameter));
+      separator = getParameterSeparator();
     }
-    result.append(')');
+    result.append(getRightParametersText());
     
     return result.toString();
+  }
+
+  /** Returns the apply receiver text. */
+  protected String getApplyReceiverText(String receiver) {
+    return receiver;
+  }
+
+  /** Returns the apply operator text. */
+  protected String getApplyOperatorText() {
+    return ".";
+  }
+
+  /** Returns the text to the left of the parameters. */
+  protected String getLeftParametersText() {
+    return "(";
+  }
+
+  /** Returns the text to the right of the parameters. */
+  protected String getRightParametersText() {
+    return ")";
+  }
+
+  /** Returns the parameter separator text. */
+  protected String getParameterSeparator() {
+    return ", ";
+  }
+  
+  /** Returns the text of the quotation. */
+  protected String getQuote() {
+    return "\"";
+  }
+
+  /** Returns the parameter value, quoted if needed. */
+  private String maybeQuote(ParameterDescriptor parameter) {
+    return parameter.getType().equals(String.class) && parameter.getValue() != null
+        ? quote(parameter.getValue())
+        : parameter.getValue();
+  }
+
+  /** Returns the quoted value. */
+  private String quote(String value) {
+    return getQuote() + value + getQuote();
   }
 
 }

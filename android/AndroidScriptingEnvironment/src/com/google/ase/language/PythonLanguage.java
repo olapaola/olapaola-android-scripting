@@ -32,4 +32,9 @@ public class PythonLanguage extends Language {
   protected String getRpcReceiverDeclaration(String rpcReceiver) {
     return rpcReceiver + " = android.Android()\n";
   }
+
+  @Override
+  protected String getQuote() {
+    return "'";
+  }
 }

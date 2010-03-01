@@ -33,4 +33,27 @@ public class TclLanguage extends Language {
     return "set " + rpcReceiver + " [android new]\n";
   }
 
+  protected String getApplyReceiverText(String receiver) {
+    return "$" + receiver;
+  }
+
+  @Override
+  protected String getApplyOperatorText() {
+    return " ";
+  }
+
+  @Override
+  protected String getLeftParametersText() {
+    return " ";
+  }
+
+  @Override
+  protected String getRightParametersText() {
+    return "";
+  }
+
+  @Override
+  protected String getParameterSeparator() {
+    return " ";
+  }
 }

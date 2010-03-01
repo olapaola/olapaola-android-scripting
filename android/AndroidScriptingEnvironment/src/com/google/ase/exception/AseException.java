@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc.
+ * Copyright (C) 2009 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -14,22 +14,13 @@
  * the License.
  */
 
-package com.google.ase.language;
+package com.google.ase.exception;
 
-/**
- * Represents the Lua programming language.
- * 
- * @author igor.v.karp@gmail.com (Igor Karp)
- */
-public class LuaLanguage extends Language {
+@SuppressWarnings("serial")
+public class AseException extends Exception {
 
-  @Override
-  protected String getImportStatement() {
-    return "require \"android\"\n";
+  public AseException(String message) {
+    super(message);
   }
 
-  @Override
-  protected String getDefaultRpcReceiver() {
-    return "android";
-  }
 }

@@ -15,6 +15,8 @@
  */
 package com.google.ase.language;
 
+import com.google.ase.jsonrpc.ParameterDescriptor;
+
 import junit.framework.TestCase;
 
 /**
@@ -45,7 +47,30 @@ public class LanguageTest extends TestCase {
     checkContentTemplate("package require android\n\nset droid [android new]\n", tcl);
   }
 
+  public void testMethodCall() {
+    ParameterDescriptor[] params = new ParameterDescriptor[] {
+      new ParameterDescriptor("1", Integer.class),
+      new ParameterDescriptor("abc", String.class),
+      new ParameterDescriptor(null, String.class),
+      new ParameterDescriptor(null, Object.class),
+    };
+    checkMethodCall("droid.method(1, \"abc\", null, null)", beanShell, params);
+    checkMethodCall("droid.method(1, \"abc\", null, null)", javaScript, params);
+    checkMethodCall("android.method(1, \"abc\", null, null)", lua, params);
+    checkMethodCall("$droid->method(1, \"abc\", null, null)", perl, params);
+    checkMethodCall("droid.method(1, 'abc', null, null)", python, params);
+    checkMethodCall("droid.method(1, \"abc\", null, null)", ruby, params);
+    checkMethodCall("droid.method(1, \"abc\", null, null)", shell, params);
+    checkMethodCall("$droid method 1 \"abc\" null null", tcl, params);
+  }
+
   private void checkContentTemplate(String expectedContent, Language language) {
     assertEquals(expectedContent, language.getContentTemplate());
+  }
+
+  private void checkMethodCall(String expectedContent, Language language,
+      ParameterDescriptor... params) {
+    assertEquals(expectedContent, language.getMethodCallText(language.getDefaultRpcReceiver(),
+        "method", params));
   }
 }

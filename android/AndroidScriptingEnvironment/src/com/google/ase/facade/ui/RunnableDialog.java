@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc.
+ * Copyright (C) 2010 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -14,13 +14,18 @@
  * the License.
  */
 
-package com.google.ase;
+package com.google.ase.facade.ui;
 
-@SuppressWarnings("serial")
-public class AseException extends Exception {
+import android.app.Dialog;
 
-  public AseException(String message) {
-    super(message);
-  }
+public interface RunnableDialog {
+  /**
+   * Returns the wrapped {@link Dialog}.
+   */
+  public Dialog getDialog();
 
+  /**
+   * Dismiss the {@link Dialog} and close {@link AseActivity}.
+   */
+  public void dismissDialog();
 }

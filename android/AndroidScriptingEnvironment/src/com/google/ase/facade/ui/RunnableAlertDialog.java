@@ -16,93 +16,92 @@
 
 package com.google.ase.facade.ui;
 
-import java.util.concurrent.CountDownLatch;
-
+import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
+import android.app.Dialog;
 import android.content.DialogInterface;
-import android.content.DialogInterface.OnClickListener;
+import android.content.Intent;
 
-import com.google.ase.AseLog;
+import com.google.ase.future.FutureActivityTask;
+import com.google.ase.future.FutureIntent;
 
 /**
- * Wrapper class for alert dialog running in separate thread
+ * Wrapper class for alert dialog running in separate thread.
  *
  * @author MeanEYE.rcf (meaneye.rcf@gmail.com)
  */
-class RunnableAlertDialog implements Runnable {
+class RunnableAlertDialog extends FutureActivityTask implements RunnableDialog {
   private AlertDialog mDialog;
-  private final Context mActivity;
-  private final OnClickListener mListener;
-  private final CountDownLatch mLatch;
-  private final CountDownLatch mShowLatch;
   private final String mTitle;
   private final String mMessage;
-  private final Boolean mCancelable;
-  public int mResponse = 0;
+  private FutureIntent mResult;
+  private final String[] mButtonTexts;
+  private Activity mActivity;
 
-  // TODO(damonkohler): This needs to accept a service not a context.
-  public RunnableAlertDialog(Context activity, final CountDownLatch latch,
-      final CountDownLatch showLatch, final String title, final String message,
-      final Boolean cancelable) {
-    mActivity = activity;
-    mLatch = latch;
-    mShowLatch = showLatch;
-    mDialog = null;
+  public RunnableAlertDialog(String title, String message) {
     mTitle = title;
     mMessage = message;
-    mCancelable = cancelable;
-    // Event listener for dialog buttons.
-    mListener = new DialogInterface.OnClickListener() {
-      @Override
-      public void onClick(DialogInterface dialog, int which) {
-        mResponse = which;
-      }
-    };
+    mButtonTexts = new String[3];
   }
 
   /**
-   * Returns created dialog.
-   */
-  public Object getDialog() {
-    return mDialog;
-  }
-
-  /**
-   * Set button text
+   * Set button text.
    *
    * @param buttonNumber
    *          button number
    * @param text
    *          button text
    */
-  public void setButton(Integer buttonNumber, String text) {
-    switch (buttonNumber) {
-      case 0:
-        mDialog.setButton(text, mListener);
-        break;
-      case 1:
-        mDialog.setButton2(text, mListener);
-        break;
-      case 2:
-        mDialog.setButton3(text, mListener);
-        break;
-    }
+  public void setButton(int buttonNumber, String text) {
+    mButtonTexts[buttonNumber] = text;
   }
 
   @Override
-  public void run() {
-    mDialog = new AlertDialog.Builder(mActivity).create();
-    mDialog.setCancelable(mCancelable);
+  public Dialog getDialog() {
+    return mDialog;
+  }
+
+  @Override
+  public void run(final Activity activity, FutureIntent result) {
+    mActivity = activity;
+    mResult = result;
+    mDialog = new AlertDialog.Builder(activity).create();
     mDialog.setTitle(mTitle);
     mDialog.setMessage(mMessage);
-    // Allow main thread to continue and wait for show signal.
-    mLatch.countDown();
-    try {
-      mShowLatch.await();
-    } catch (InterruptedException e) {
-      AseLog.e("Interrupted while waiting for handler to complete.", e);
+    DialogInterface.OnClickListener buttonListener = new DialogInterface.OnClickListener() {
+      @Override
+      public void onClick(DialogInterface dialog, int which) {
+        Intent intent = new Intent();
+        intent.putExtra("which", which);
+        mResult.set(intent);
+        mDialog.dismiss();
+        activity.finish();
+      }
+    };
+    if (mButtonTexts[0] != null) {
+      mDialog.setButton(mButtonTexts[0], buttonListener);
     }
+    if (mButtonTexts[1] != null) {
+      mDialog.setButton2(mButtonTexts[1], buttonListener);
+    }
+    if (mButtonTexts[2] != null) {
+      mDialog.setButton3(mButtonTexts[2], buttonListener);
+    }
+    mDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+      @Override
+      public void onCancel(DialogInterface dialog) {
+        Intent intent = new Intent();
+        intent.putExtra("canceled", true);
+        mResult.set(intent);
+        activity.finish();
+      }
+    });
     mDialog.show();
+  }
+
+  @Override
+  public void dismissDialog() {
+    mDialog.dismiss();
+    mActivity.finish();
   }
 }

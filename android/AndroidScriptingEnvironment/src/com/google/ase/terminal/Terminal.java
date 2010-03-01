@@ -33,13 +33,13 @@ import android.view.MenuItem;
 import android.view.Window;
 
 import com.google.ase.AseAnalytics;
-import com.google.ase.AseException;
 import com.google.ase.AseLog;
-import com.google.ase.AsePreferences;
-import com.google.ase.AseService;
 import com.google.ase.Constants;
 import com.google.ase.R;
 import com.google.ase.ScriptLauncher;
+import com.google.ase.activity.AsePreferences;
+import com.google.ase.activity.AseService;
+import com.google.ase.exception.AseException;
 import com.google.ase.interpreter.InterpreterProcess;
 
 /**
@@ -156,11 +156,6 @@ public class Terminal extends Activity {
     }
     mInterpreterProcess = mLauncher.getProcess();
     mEmulatorView.attachInterpreterProcess(mInterpreterProcess);
-  }
-
-  private void restart() {
-    startActivity(getIntent());
-    finish();
   }
 
   private void updatePreferences() {
@@ -298,9 +293,6 @@ public class Terminal extends Activity {
       case R.id.terminal_menu_preferences:
         doPreferences();
         break;
-      case R.id.terminal_menu_reset:
-        doResetTerminal();
-        break;
       case R.id.terminal_menu_send_email:
         doEmailTranscript();
         break;
@@ -319,10 +311,6 @@ public class Terminal extends Activity {
 
   private void doPreferences() {
     startActivity(new Intent(this, AsePreferences.class));
-  }
-
-  private void doResetTerminal() {
-    restart();
   }
 
   private void doEmailTranscript() {

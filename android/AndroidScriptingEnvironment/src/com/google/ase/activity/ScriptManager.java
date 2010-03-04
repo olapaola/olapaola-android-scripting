@@ -36,7 +36,6 @@ import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.Window;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AdapterView;
 import android.widget.ListView;
@@ -75,9 +74,7 @@ public class ScriptManager extends ListActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
-    setContentView(R.layout.list);
-    CustomWindowTitle.buildWindowTitle(this);
+    CustomizeWindow.requestCustomTitle(this, R.layout.list);
     UsageTrackingConfirmation.show(this);
     listScripts();
     registerForContextMenu(getListView());
@@ -179,6 +176,7 @@ public class ScriptManager extends ListActivity {
       Interpreter interpreter = addMenuIds.get(itemId);
       intent.putExtra(Constants.EXTRA_SCRIPT_NAME, interpreter.getExtension());
       intent.putExtra(Constants.EXTRA_SCRIPT_CONTENT, interpreter.getContentTemplate());
+      intent.putExtra(Constants.EXTRA_IS_NEW_SCRIPT, true);
       startActivity(intent);
     } else if (itemId == MenuId.QRCODE_ADD.getId()) {
       Intent intent = new Intent("com.google.zxing.client.android.SCAN");

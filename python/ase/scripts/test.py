@@ -16,17 +16,17 @@ droid = android.Android()
 def event_loop():
   for i in range(10):
     e = droid.receiveEvent()
-    if e['result'] is not None:
+    if e.result is not None:
       return True
     time.sleep(2)
   return False
 
 
 def test_clipboard():
-  previous = droid.getClipboard()['result']
+  previous = droid.getClipboard().result
   msg = 'Hello, world!'
   droid.setClipboard(msg)
-  echo = droid.getClipboard()['result']
+  echo = droid.getClipboard().result
   droid.setClipboard(previous)
   return echo == msg
 
@@ -36,8 +36,8 @@ def test_gdata():
   client = gdata.docs.service.DocsService()
 
   # Authenticate using your Google Docs email address and password.
-  username = droid.getInput('Username')['result']
-  password = droid.getPassword('Password', 'For ' + username)['result']
+  username = droid.getInput('Username').result
+  password = droid.getPassword('Password', 'For ' + username).result
   client.ClientLogin(username, password)
 
   # Query the server for an Atom feed containing a list of your documents.
@@ -64,7 +64,7 @@ def test_sensors():
 
 def test_speak():
   result = droid.speak('Hello, world!')
-  return result['error'] is None
+  return result.error is None
 
 
 def test_phone_state():
@@ -77,7 +77,7 @@ def test_phone_state():
 
 def test_ringer_silent():
   result = droid.setRingerSilent()
-  if result['error'] is not None:
+  if result.error is not None:
     return False
   result = droid.setRingerSilent(False)
   return True
@@ -85,48 +85,93 @@ def test_ringer_silent():
 
 def test_ringer_volume():
   get_result = droid.getRingerVolume()
-  if get_result['error'] is not None:
+  if get_result.error is not None:
     return False
   droid.setRingerVolume(0)
-  set_result = droid.setRingerVolume(get_result['result'])
-  if set_result['error'] is not None:
+  set_result = droid.setRingerVolume(get_result.result)
+  if set_result.error is not None:
     return False
   return True
 
 
 def test_get_last_known_location():
   result = droid.getLastKnownLocation()
-  return result['error'] is None
+  return result.error is None
 
 
 def test_geocode():
   result = droid.geocode(0.0, 0.0, 1)
-  return result['error'] is None
+  return result.error is None
 
 
 def test_wifi():
   result = droid.setWifiEnabled()
-  return result['error'] is None
+  return result.error is None
 
 
 def test_make_toast():
   result = droid.makeToast('Hello, world!')
-  return result['error'] is None
+  return result.error is None
 
 
 def test_vibrate():
   result = droid.vibrate()
-  return result['error'] is None
+  return result.error is None
 
 
 def test_notify():
   result = droid.notify('Hello, world!')
-  return result['error'] is None
+  return result.error is None
 
 
 def test_get_running_packages():
   result = droid.getRunningPackages()
-  return result['error'] is None
+  return result.error is None
+
+
+def test_alert_dialog():
+  title = 'User Interace'
+  message = 'Welcome to the ASE integration test.'
+  dialog = droid.dialogCreateAlert(title, message).result
+  droid.dialogSetButton(dialog, 0, 'Continue')
+  droid.dialogShow(dialog)
+  droid.dialogGetResponse(dialog)
+  return True
+
+
+def test_alert_dialog_with_buttons():
+  title = 'Alert'
+  message = ('This alert box has 3 buttons and '
+             'will wait for you to press one.')
+  dialog = droid.dialogCreateAlert(title, message).result
+  droid.dialogSetButton(dialog, 0, 'Button 1')
+  droid.dialogSetButton(dialog, 1, 'Button 2')
+  droid.dialogSetButton(dialog, 2, 'Button 3')
+  droid.dialogShow(dialog)
+  response = droid.dialogGetResponse(dialog).result
+  return response is not None
+
+
+def test_spinner_progress():
+  title = 'Spinner'
+  message = 'This is simple spinner progress.'
+  dialog = droid.dialogCreateSpinnerProgress(title, message).result
+  droid.dialogShow(dialog)
+  time.sleep(2)
+  droid.dialogDismiss(dialog)
+  return True
+
+
+def test_horizontal_progress():
+  title = 'Horizontal'
+  message = 'This is simple horizontal progress.'
+  dialog = droid.dialogCreateHorizontalProgress(title, message, 50).result
+  droid.dialogShow(dialog)
+  for x in range(0, 50):
+    time.sleep(0.1)
+    droid.dialogSetCurrentProgress(dialog, x)
+  droid.dialogDismiss(dialog)
+  return True
 
 
 if __name__ == '__main__':

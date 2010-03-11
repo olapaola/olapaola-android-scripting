@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+  xmlns:android="http://schemas.android.com/apk/res/android">
+  <PreferenceCategory
+    android:title="General">
+    <CheckBoxPreference
+      android:key="usagetracking"
+      android:title="Usage Tracking"
+      android:summary="Allow anonymous usage tracking." android:defaultValue="false"/>
+  </PreferenceCategory>
+  <PreferenceCategory
+    android:title="Editor">
+    <CheckBoxPreference
+      android:key="editor_fullscreen"
+      android:title="Fullscreen"
+      android:summary="Show the editor in fullscreen mode." android:defaultValue="true"/>
+     <ListPreference
+      android:key="editor_fontsize"
+      android:defaultValue="@string/default_value_fontsize_preference"
+      android:title="@string/title_fontsize_preference"
+      android:summary="@string/summary_fontsize_preference"
+      android:entries="@array/entries_fontsize_preference"
+      android:entryValues="@array/entryvalues_fontsize_preference"
+      android:dialogTitle="@string/dialog_title_fontsize_preference" />
+   </PreferenceCategory>
+   <PreferenceCategory
+    android:title="Terminal">
+    <CheckBoxPreference
+      android:key="terminal_fullscreen"
+      android:title="Fullscreen"
+      android:summary="Show the terminal in fullscreen mode." android:defaultValue="true"/>
+     <ListPreference
+      android:key="fontsize"
+      android:defaultValue="@string/default_value_fontsize_preference"
+      android:title="@string/title_fontsize_preference"
+      android:summary="@string/summary_fontsize_preference"
+      android:entries="@array/entries_fontsize_preference"
+      android:entryValues="@array/entryvalues_fontsize_preference"
+      android:dialogTitle="@string/dialog_title_fontsize_preference" />
+    <ListPreference
+      android:key="color"
+      android:defaultValue="@string/default_value_color_preference"
+      android:title="@string/title_color_preference"
+      android:summary="@string/summary_color_preference"
+      android:entries="@array/entries_color_preference"
+      android:entryValues="@array/entryvalues_color_preference"
+      android:dialogTitle="@string/dialog_title_color_preference" />
+    <ListPreference
+      android:key="controlkey"
+      android:defaultValue="@string/default_value_controlkey_preference"
+      android:title="@string/title_controlkey_preference"
+      android:summary="@string/summary_controlkey_preference"
+      android:entries="@array/entries_controlkey_preference"
+      android:entryValues="@array/entryvalues_controlkey_preference"
+      android:dialogTitle="@string/dialog_title_controlkey_preference" />
+  </PreferenceCategory>
+</PreferenceScreen>

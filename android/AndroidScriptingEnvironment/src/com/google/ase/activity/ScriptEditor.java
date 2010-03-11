@@ -17,16 +17,25 @@
 package com.google.ase.activity;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.text.Editable;
+import android.text.InputFilter;
+import android.text.Selection;
+import android.text.Spanned;
+import android.text.TextWatcher;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.Window;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -35,7 +44,8 @@ import com.google.ase.Constants;
 import com.google.ase.IntentBuilders;
 import com.google.ase.R;
 import com.google.ase.ScriptStorageAdapter;
-import com.google.ase.interpreter.InterpreterUtils;
+import com.google.ase.dialog.Help;
+import com.google.ase.interpreter.InterpreterConfiguration;
 
 /**
  * A text editor for scripts.
@@ -46,9 +56,12 @@ public class ScriptEditor extends Activity {
 
   private EditText mNameText;
   private EditText mContentText;
+  private boolean mScheduleMoveLeft;
+  private String mLastSavedContent;
+  private SharedPreferences mPreferences;
 
   private static enum MenuId {
-    SAVE, SAVE_AND_RUN, HELP;
+    SAVE, SAVE_AND_RUN, PREFERENCES, API_BROWSER, HELP;
     public int getId() {
       return ordinal() + Menu.FIRST;
     }
@@ -58,33 +71,72 @@ public class ScriptEditor extends Activity {
     RPC_HELP
   }
 
+  private int readIntPref(String key, int defaultValue, int maxValue) {
+    int val;
+    try {
+      val = Integer.parseInt(mPreferences.getString(key, Integer.toString(defaultValue)));
+    } catch (NumberFormatException e) {
+      val = defaultValue;
+    }
+    val = Math.max(0, Math.min(val, maxValue));
+    return val;
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
+    mPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+    if (mPreferences.getBoolean("editor_fullscreen", true)) {
+      CustomizeWindow.requestFullscreen(this);
+    } else {
+      CustomizeWindow.requestNoTitle(this);
+    }
     setContentView(R.layout.editor);
-    CustomWindowTitle.buildWindowTitle(this);
+    mNameText = (EditText) findViewById(R.id.script_editor_title);
+    mContentText = (EditText) findViewById(R.id.script_editor_body);
+    updatePreferences();
 
-    // TODO(damonkohler): Rename these views.
-    mNameText = (EditText) findViewById(R.id.title);
-    mContentText = (EditText) findViewById(R.id.body);
-
-    Intent intent = getIntent();
-    String name = intent.getStringExtra(Constants.EXTRA_SCRIPT_NAME);
+    String name = getIntent().getStringExtra(Constants.EXTRA_SCRIPT_NAME);
     if (name != null) {
       mNameText.setText(name);
+      mNameText.setSelected(true);
+      // NOTE: This appears to be the only way to get Android to put the cursor to the beginning of
+      // the EditText field.
+      mNameText.setSelection(1);
+      mNameText.extendSelection(0);
+      mNameText.setSelection(0);
     }
-    String content = intent.getStringExtra(Constants.EXTRA_SCRIPT_CONTENT);
-    if (content == null && name != null) {
-      try {
-        content = ScriptStorageAdapter.readScript(name);
-        mContentText.setText(content);
-      } catch (IOException e) {
-        AseLog.e("Failed to read script.", e);
+
+    mLastSavedContent = getIntent().getStringExtra(Constants.EXTRA_SCRIPT_CONTENT);
+    if (mLastSavedContent == null) {
+      if (name != null) {
+        try {
+          mLastSavedContent = ScriptStorageAdapter.readScript(name);
+        } catch (IOException e) {
+          AseLog.e("Failed to read script.", e);
+          mLastSavedContent = "";
+        } finally {
+        }
       }
-    } else if (content != null) {
-      mContentText.setText(content);
     }
+    mContentText.setText(mLastSavedContent);
+
+    InputFilter[] oldFilters = mContentText.getFilters();
+    List<InputFilter> filters = new ArrayList<InputFilter>(oldFilters.length + 1);
+    filters.addAll(Arrays.asList(oldFilters));
+    filters.add(new ContentInputFilter());
+    mContentText.setFilters(filters.toArray(oldFilters));
+    mContentText.addTextChangedListener(new ContentTextWatcher());
+  }
+
+  @Override
+  protected void onResume() {
+    super.onResume();
+    updatePreferences();
+  }
+
+  private void updatePreferences() {
+    mContentText.setTextSize(readIntPref("editor_fontsize", 10, 30));
   }
 
   @Override
@@ -93,8 +145,11 @@ public class ScriptEditor extends Activity {
     menu.add(0, MenuId.SAVE.getId(), 0, "Save").setIcon(android.R.drawable.ic_menu_save);
     menu.add(0, MenuId.SAVE_AND_RUN.getId(), 0, "Save & Run").setIcon(
         android.R.drawable.ic_media_play);
-    menu.add(0, MenuId.HELP.getId(), 0, "API Browser").setIcon(
+    menu.add(0, MenuId.PREFERENCES.getId(), 0, "Preferences").setIcon(
+        android.R.drawable.ic_menu_preferences);
+    menu.add(0, MenuId.API_BROWSER.getId(), 0, "API Browser").setIcon(
         android.R.drawable.ic_menu_info_details);
+    menu.add(0, MenuId.HELP.getId(), 0, "Help").setIcon(android.R.drawable.ic_menu_help);
     return true;
   }
 
@@ -105,14 +160,19 @@ public class ScriptEditor extends Activity {
       finish();
     } else if (item.getItemId() == MenuId.SAVE_AND_RUN.getId()) {
       save();
-      startService(IntentBuilders.buildStartInTerminalIntent(mNameText.getText().toString()));
+      startActivity(IntentBuilders.buildStartInTerminalIntent(mNameText.getText().toString()));
       finish();
-    } else if (item.getItemId() == MenuId.HELP.getId()) {
+    } else if (item.getItemId() == MenuId.PREFERENCES.getId()) {
+      startActivity(new Intent(this, AsePreferences.class));
+    } else if (item.getItemId() == MenuId.API_BROWSER.getId()) {
       Intent intent = new Intent(this, ApiBrowser.class);
-      intent.putExtra(Constants.EXTRA_INTERPRETER_NAME, InterpreterUtils.getInterpreterForScript(
-          mNameText.getText().toString()).getName());
+      intent.putExtra(Constants.EXTRA_INTERPRETER_NAME,
+          InterpreterConfiguration.getInterpreterForScript(
+              mNameText.getText().toString()).getName());
       intent.putExtra(Constants.EXTRA_SCRIPT_TEXT, mContentText.getText().toString());
       startActivityForResult(intent, RequestCode.RPC_HELP.ordinal());
+    } else if (item.getItemId() == MenuId.HELP.getId()) {
+      Help.show(this);
     }
     return super.onOptionsItemSelected(item);
   }
@@ -141,8 +201,8 @@ public class ScriptEditor extends Activity {
   }
 
   private void save() {
-    ScriptStorageAdapter.writeScript(mNameText.getText().toString(), mContentText.getText()
-        .toString());
+    mLastSavedContent = mContentText.getText().toString();
+    ScriptStorageAdapter.writeScript(mNameText.getText().toString(), mLastSavedContent);
     Toast.makeText(this, "Saved " + mNameText.getText().toString(), Toast.LENGTH_SHORT);
   }
 
@@ -154,9 +214,10 @@ public class ScriptEditor extends Activity {
 
   @Override
   public boolean onKeyDown(int keyCode, KeyEvent event) {
-    if (keyCode == KeyEvent.KEYCODE_BACK) {
+    if (keyCode == KeyEvent.KEYCODE_BACK && hasContentChanged()) {
       AlertDialog.Builder alert = new AlertDialog.Builder(this);
       alert.setCancelable(false);
+      alert.setTitle("Confirm exit");
       alert.setMessage("Would you like to save?");
       alert.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
         public void onClick(DialogInterface dialog, int whichButton) {
@@ -179,4 +240,43 @@ public class ScriptEditor extends Activity {
       return super.onKeyDown(keyCode, event);
     }
   }
+
+  private boolean hasContentChanged() {
+    return !mLastSavedContent.equals(mContentText.getText().toString());
+  }
+
+  private final class ContentInputFilter implements InputFilter {
+    @Override
+    public CharSequence filter(CharSequence source, int start, int end, Spanned dest, int dstart,
+        int dend) {
+      if (end - start == 1) {
+        String auto = InterpreterConfiguration.getInterpreterForScript(
+            mNameText.getText().toString()).getLanguage().autoClose(source.charAt(start));
+        if (auto != null) {
+          mScheduleMoveLeft = true;
+          return auto;
+        }
+      }
+      return null;
+    }
+  }
+
+  private final class ContentTextWatcher implements TextWatcher {
+    @Override
+    public void onTextChanged(CharSequence s, int start, int before, int count) {
+    }
+
+    @Override
+    public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+    }
+
+    @Override
+    public void afterTextChanged(Editable s) {
+      if (mScheduleMoveLeft) {
+        mScheduleMoveLeft = false;
+        Selection.moveLeft(mContentText.getText(), mContentText.getLayout());
+      }
+    }
+  }
+
 }

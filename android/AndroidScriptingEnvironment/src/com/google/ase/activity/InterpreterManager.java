@@ -29,14 +29,12 @@ import android.app.ListActivity;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.DialogInterface.OnClickListener;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.SubMenu;
 import android.view.View;
-import android.view.Window;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AdapterView;
 import android.widget.ListView;
@@ -46,10 +44,9 @@ import com.google.ase.AseAnalytics;
 import com.google.ase.AseLog;
 import com.google.ase.Constants;
 import com.google.ase.R;
+import com.google.ase.dialog.Help;
 import com.google.ase.interpreter.Interpreter;
-import com.google.ase.interpreter.InterpreterInstaller;
-import com.google.ase.interpreter.InterpreterUninstaller;
-import com.google.ase.interpreter.InterpreterUtils;
+import com.google.ase.interpreter.InterpreterConfiguration;
 
 public class InterpreterManager extends ListActivity {
 
@@ -63,7 +60,7 @@ public class InterpreterManager extends ListActivity {
   private HashMap<Integer, Interpreter> mInstallerMenuIds;
 
   private static enum MenuId {
-    HELP, ADD, DELETE, NETWORK;
+    HELP, ADD, DELETE, NETWORK, PREFERENCES;
     public int getId() {
       return ordinal() + Menu.FIRST;
     }
@@ -72,13 +69,9 @@ public class InterpreterManager extends ListActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
-    setContentView(R.layout.list);
-    CustomWindowTitle.buildWindowTitle(this);
-
+    CustomizeWindow.requestCustomTitle(this, R.layout.list);
     listInterpreters();
     registerForContextMenu(getListView());
-
     AseAnalytics.trackActivity(this);
   }
 
@@ -92,7 +85,7 @@ public class InterpreterManager extends ListActivity {
    * Populates the list view with all available interpreters.
    */
   private void listInterpreters() {
-    List<Interpreter> interpreters = InterpreterUtils.getInstalledInterpreters();
+    List<Interpreter> interpreters = InterpreterConfiguration.getInstalledInterpreters();
     List<Map<String, String>> data = new ArrayList<Map<String, String>>();
     for (Interpreter interpreter : interpreters) {
       Map<String, String> map = new HashMap<String, String>();
@@ -118,7 +111,10 @@ public class InterpreterManager extends ListActivity {
     menu.clear();
     buildMenuIdMaps();
     buildInstallLanguagesMenu(menu);
-    menu.add(Menu.NONE, MenuId.NETWORK.getId(), Menu.NONE, "Start Server");
+    menu.add(Menu.NONE, MenuId.NETWORK.getId(), Menu.NONE, "Start Server").setIcon(
+        android.R.drawable.ic_menu_share);
+    menu.add(Menu.NONE, MenuId.PREFERENCES.getId(), Menu.NONE, "Preferences").setIcon(
+        android.R.drawable.ic_menu_preferences);
     menu.add(Menu.NONE, MenuId.HELP.getId(), Menu.NONE, "Help").setIcon(
         android.R.drawable.ic_menu_help);
     return true;
@@ -127,7 +123,7 @@ public class InterpreterManager extends ListActivity {
   private void buildMenuIdMaps() {
     mInstallerMenuIds = new HashMap<Integer, Interpreter>();
     int i = MenuId.values().length + Menu.FIRST;
-    List<Interpreter> notInstalled = InterpreterUtils.getNotInstalledInterpreters();
+    List<Interpreter> notInstalled = InterpreterConfiguration.getNotInstalledInterpreters();
     for (Interpreter interpreter : notInstalled) {
       mInstallerMenuIds.put(i, interpreter);
       ++i;
@@ -135,7 +131,7 @@ public class InterpreterManager extends ListActivity {
   }
 
   private void buildInstallLanguagesMenu(Menu menu) {
-    if (InterpreterUtils.getNotInstalledInterpreters().size() > 0) {
+    if (InterpreterConfiguration.getNotInstalledInterpreters().size() > 0) {
       SubMenu installMenu =
           menu.addSubMenu(Menu.NONE, Menu.NONE, Menu.NONE, "Add").setIcon(
               android.R.drawable.ic_menu_add);
@@ -157,17 +153,13 @@ public class InterpreterManager extends ListActivity {
   public boolean onOptionsItemSelected(MenuItem item) {
     int itemId = item.getItemId();
     if (itemId == MenuId.HELP.getId()) {
-      // Show documentation.
-      Intent intent = new Intent();
-      intent.setAction(Intent.ACTION_VIEW);
-      intent.setData(Uri.parse(getString(R.string.wiki_url)));
-      startActivity(intent);
+      Help.show(this);
     } else if (itemId == MenuId.NETWORK.getId()) {
       AlertDialog.Builder dialog = new AlertDialog.Builder(this);
       dialog.setItems(new CharSequence[] { "Public", "Private" }, new OnClickListener() {
         @Override
         public void onClick(DialogInterface dialog, int which) {
-          launchService(which == 0);
+          launchService(which == 0 /* usePublicIp */);
         }
       });
       dialog.show();
@@ -175,6 +167,8 @@ public class InterpreterManager extends ListActivity {
       // Install selected interpreter.
       Interpreter interpreter = mInstallerMenuIds.get(itemId);
       installInterpreter(interpreter);
+    } else if (itemId == MenuId.PREFERENCES.getId()) {
+      startActivity(new Intent(this, AsePreferences.class));
     }
     return super.onOptionsItemSelected(item);
   }
@@ -205,7 +199,7 @@ public class InterpreterManager extends ListActivity {
     super.onListItemClick(list, view, position, id);
     Map<String, String> item = (Map<String, String>) list.getItemAtPosition(position);
     String interpreterName = item.get(NAME);
-    launchTerminal(InterpreterUtils.getInterpreterByName(interpreterName));
+    launchTerminal(InterpreterConfiguration.getInterpreterByName(interpreterName));
   }
 
   @Override
@@ -232,7 +226,7 @@ public class InterpreterManager extends ListActivity {
     }
 
     String name = interpreterItem.get(NAME);
-    if (!InterpreterUtils.getInterpreterByName(name).isUninstallable()) {
+    if (!InterpreterConfiguration.getInterpreterByName(name).isUninstallable()) {
       AseLog.v(this, "Cannot uninstall " + interpreterItem.get(NICE_NAME));
       return true;
     }

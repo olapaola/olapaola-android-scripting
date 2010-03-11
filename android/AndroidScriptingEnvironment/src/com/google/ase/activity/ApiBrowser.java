@@ -25,14 +25,15 @@ import java.util.Set;
 
 import android.app.ListActivity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.util.TypedValue;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
@@ -43,13 +44,18 @@ import com.google.ase.AseAnalytics;
 import com.google.ase.AseLog;
 import com.google.ase.Constants;
 import com.google.ase.R;
+import com.google.ase.facade.AlarmManagerFacade;
 import com.google.ase.facade.AndroidFacade;
+import com.google.ase.facade.EventFacade;
+import com.google.ase.facade.LocationManagerFacade;
 import com.google.ase.facade.MediaFacade;
+import com.google.ase.facade.SensorManagerFacade;
 import com.google.ase.facade.SpeechRecognitionFacade;
+import com.google.ase.facade.TelephonyManagerFacade;
 import com.google.ase.facade.TextToSpeechFacade;
 import com.google.ase.facade.ui.UiFacade;
 import com.google.ase.interpreter.Interpreter;
-import com.google.ase.interpreter.InterpreterUtils;
+import com.google.ase.interpreter.InterpreterConfiguration;
 import com.google.ase.jsonrpc.JsonRpcServer;
 import com.google.ase.jsonrpc.RpcInfo;
 
@@ -76,9 +82,13 @@ public class ApiBrowser extends ListActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
+    SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+    if (preferences.getBoolean("editor_fullscreen", true)) {
+      CustomizeWindow.requestFullscreen(this);
+    } else {
+      CustomizeWindow.requestNoTitle(this);
+    }
     setContentView(R.layout.list);
-    CustomWindowTitle.buildWindowTitle(this);
     mExpandedPositions = new HashSet<Integer>();
     mRpcInfoList = buildRpcInfoList();
     mAdapter = new ApiBrowserAdapter();
@@ -96,7 +106,14 @@ public class ApiBrowser extends ListActivity {
     list.addAll(JsonRpcServer.buildRpcInfoMap(MediaFacade.class).values());
     list.addAll(JsonRpcServer.buildRpcInfoMap(SpeechRecognitionFacade.class).values());
     list.addAll(JsonRpcServer.buildRpcInfoMap(TextToSpeechFacade.class).values());
+    list.addAll(JsonRpcServer.buildRpcInfoMap(TelephonyManagerFacade.class).values());
+    list.addAll(JsonRpcServer.buildRpcInfoMap(AlarmManagerFacade.class).values());
+    list.addAll(JsonRpcServer.buildRpcInfoMap(SensorManagerFacade.class).values());
+    list.addAll(JsonRpcServer.buildRpcInfoMap(EventFacade.class).values());
+    list.addAll(JsonRpcServer.buildRpcInfoMap(LocationManagerFacade.class).values());
+
     list.addAll(JsonRpcServer.buildRpcInfoMap(UiFacade.class).values());
+
     Collections.sort(list, new Comparator<RpcInfo>() {
       public int compare(RpcInfo info1, RpcInfo info2) {
         return info1.getName().compareTo(info2.getName());
@@ -109,8 +126,10 @@ public class ApiBrowser extends ListActivity {
   public boolean onPrepareOptionsMenu(Menu menu) {
     super.onPrepareOptionsMenu(menu);
     menu.clear();
-    menu.add(Menu.NONE, MenuId.EXPAND_ALL.getId(), Menu.NONE, "Expand All");
-    menu.add(Menu.NONE, MenuId.COLLAPSE_ALL.getId(), Menu.NONE, "Collapse All");
+    menu.add(Menu.NONE, MenuId.EXPAND_ALL.getId(), Menu.NONE, "Expand All").setIcon(
+        android.R.drawable.ic_menu_add);
+    menu.add(Menu.NONE, MenuId.COLLAPSE_ALL.getId(), Menu.NONE, "Collapse All").setIcon(
+        android.R.drawable.ic_menu_close_clear_cancel);
     return true;
   }
 
@@ -168,7 +187,7 @@ public class ApiBrowser extends ListActivity {
 
   private void insertText(RpcInfo rpc) {
     String scriptText = getIntent().getStringExtra(Constants.EXTRA_SCRIPT_TEXT);
-    Interpreter interpreter = InterpreterUtils.getInterpreterByName(
+    Interpreter interpreter = InterpreterConfiguration.getInterpreterByName(
         getIntent().getStringExtra(Constants.EXTRA_INTERPRETER_NAME));
     String rpcHelpText = interpreter.getRpcText(scriptText, rpc);
 

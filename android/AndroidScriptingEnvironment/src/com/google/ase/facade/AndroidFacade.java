@@ -34,24 +34,14 @@ import android.app.Service;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.location.Address;
-import android.location.Criteria;
 import android.location.Geocoder;
-import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
-import android.telephony.PhoneStateListener;
-import android.telephony.TelephonyManager;
 import android.telephony.gsm.SmsManager;
 import android.text.ClipboardManager;
 import android.text.InputType;
@@ -59,10 +49,9 @@ import android.text.method.PasswordTransformationMethod;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.google.ase.AseApplication;
 import com.google.ase.AseLog;
-import com.google.ase.CircularBuffer;
 import com.google.ase.R;
-import com.google.ase.activity.AseApplication;
 import com.google.ase.activity.AseServiceHelper;
 import com.google.ase.exception.AseRuntimeException;
 import com.google.ase.future.FutureActivityTask;
@@ -79,10 +68,8 @@ public class AndroidFacade implements RpcReceiver {
 
   private final Service mService;
   private final Handler mHandler;
+  private final Intent mIntent;
   private final Queue<FutureActivityTask> mTaskQueue;
-
-  private final CircularBuffer<Bundle> mEventBuffer;
-  private static final int EVENT_BUFFER_LIMIT = 1024;
 
   private final ActivityManager mActivityManager;
   private final WifiManager mWifi;
@@ -93,107 +80,10 @@ public class AndroidFacade implements RpcReceiver {
   private final Geocoder mGeocoder;
   private final TextToSpeechFacade mTts;
 
-  private Bundle mSensorReadings;
-  private final SensorManager mSensorManager;
-  private final SensorEventListener mSensorListener = new SensorEventListener() {
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-      if (mSensorReadings == null) {
-        mSensorReadings = new Bundle();
-      }
-      mSensorReadings.putInt("accuracy", accuracy);
-      postEvent("sensors", mSensorReadings);
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-      if (mSensorReadings == null) {
-        mSensorReadings = new Bundle();
-      }
-      switch (event.sensor.getType()) {
-        case Sensor.TYPE_ORIENTATION:
-          mSensorReadings.putFloat("azimuth", event.values[0]);
-          mSensorReadings.putFloat("pitch", event.values[1]);
-          mSensorReadings.putFloat("roll", event.values[2]);
-          break;
-        case Sensor.TYPE_ACCELEROMETER:
-          mSensorReadings.putFloat("xforce", event.values[0]);
-          mSensorReadings.putFloat("yforce", event.values[1]);
-          mSensorReadings.putFloat("zforce", event.values[2]);
-          break;
-        case Sensor.TYPE_MAGNETIC_FIELD:
-          mSensorReadings.putFloat("xmag", event.values[0]);
-          mSensorReadings.putFloat("ymag", event.values[1]);
-          mSensorReadings.putFloat("zmag", event.values[2]);
-          break;
-      }
-      postEvent("sensors", mSensorReadings);
-    }
-  };
-
   @Override
   public void shutdown() {
-    stopSensing();
-    stopLocating();
-    stopTrackingPhoneState();
     mTts.shutdown();
   }
-
-  private Bundle buildLocationBundle(Location location) {
-    Bundle bundle = new Bundle();
-    bundle.putDouble("altitude", location.getAltitude());
-    bundle.putDouble("latitude", location.getLatitude());
-    bundle.putDouble("longitude", location.getLongitude());
-    bundle.putLong("time", location.getTime());
-    bundle.putFloat("accuracy", location.getAccuracy());
-    bundle.putFloat("speed", location.getSpeed());
-    bundle.putString("provider", location.getProvider());
-    return bundle;
-  }
-
-  private Bundle mLocation;
-  private final LocationManager mLocationManager;
-  private final LocationListener mLocationListener = new LocationListener() {
-    @Override
-    public void onLocationChanged(Location location) {
-      mLocation = buildLocationBundle(location);
-      postEvent("location", mLocation);
-    }
-
-    @Override
-    public void onProviderDisabled(String provider) {
-    }
-
-    @Override
-    public void onProviderEnabled(String provider) {
-    }
-
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-    }
-  };
-
-  private Bundle mPhoneState;
-  private final TelephonyManager mTelephonyManager;
-  private final PhoneStateListener mPhoneStateListener = new PhoneStateListener() {
-    @Override
-    public void onCallStateChanged(int state, String incomingNumber) {
-      mPhoneState = new Bundle();
-      mPhoneState.putString("incomingNumber", incomingNumber);
-      switch (state) {
-        case TelephonyManager.CALL_STATE_IDLE:
-          mPhoneState.putString("state", "idle");
-          break;
-        case TelephonyManager.CALL_STATE_OFFHOOK:
-          mPhoneState.putString("state", "offhook");
-          break;
-        case TelephonyManager.CALL_STATE_RINGING:
-          mPhoneState.putString("state", "ringing");
-          break;
-      }
-      postEvent("phone_state", mPhoneState);
-    }
-  };
 
   /**
    * Creates a new AndroidFacade that simplifies the interface to various Android APIs.
@@ -203,22 +93,19 @@ public class AndroidFacade implements RpcReceiver {
    * @param handler
    *          is the {@link Handler} the APIs will use to communicate with the UI thread
    */
-  public AndroidFacade(Service service, Handler handler) {
+  public AndroidFacade(Service service, Handler handler, Intent intent) {
     mService = service;
     mHandler = handler;
+    mIntent = intent;
     mTaskQueue = ((AseApplication) mService.getApplication()).getTaskQueue();
     mSms = SmsManager.getDefault();
     mActivityManager = (ActivityManager) mService.getSystemService(Context.ACTIVITY_SERVICE);
     mWifi = (WifiManager) mService.getSystemService(Context.WIFI_SERVICE);
     mAudio = (AudioManager) mService.getSystemService(Activity.AUDIO_SERVICE);
     mVibrator = (Vibrator) mService.getSystemService(Context.VIBRATOR_SERVICE);
-    mSensorManager = (SensorManager) mService.getSystemService(Context.SENSOR_SERVICE);
-    mLocationManager = (LocationManager) mService.getSystemService(Context.LOCATION_SERVICE);
     mNotificationManager =
         (NotificationManager) mService.getSystemService(Context.NOTIFICATION_SERVICE);
     mGeocoder = new Geocoder(mService);
-    mTelephonyManager = (TelephonyManager) mService.getSystemService(Context.TELEPHONY_SERVICE);
-    mEventBuffer = new CircularBuffer<Bundle>(EVENT_BUFFER_LIMIT);
     mTts = new TextToSpeechFacade(service);
   }
 
@@ -236,76 +123,6 @@ public class AndroidFacade implements RpcReceiver {
     return clipboard.getText().toString();
   }
 
-  @Rpc(description = "Starts tracking phone state.")
-  public void startTrackingPhoneState() {
-    mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_CALL_STATE);
-  }
-
-  @Rpc(description = "Returns the current phone state and incoming number.", returns = "A map of \"state\" and \"incomingNumber\"")
-  public Bundle readPhoneState() {
-    return mPhoneState;
-  }
-
-  @Rpc(description = "Stops tracking phone state.")
-  public void stopTrackingPhoneState() {
-    mTelephonyManager.listen(mPhoneStateListener, PhoneStateListener.LISTEN_NONE);
-  }
-
-  @Rpc(description = "Starts recording sensor data to be available for polling.")
-  public void startSensing() {
-    for (Sensor sensor : mSensorManager.getSensorList(Sensor.TYPE_ALL)) {
-      mSensorManager.registerListener(mSensorListener, sensor, SensorManager.SENSOR_DELAY_NORMAL);
-    }
-  }
-
-  @Rpc(description = "Starts recording sensor data to be available for polling.")
-  public Bundle readSensors() {
-    return mSensorReadings;
-  }
-
-  @Rpc(description = "Stops collecting sensor data.")
-  public void stopSensing() {
-    mSensorManager.unregisterListener(mSensorListener);
-    mSensorReadings = null;
-  }
-
-  @Rpc(description = "Starts collecting location data.")
-  public void startLocating(
-      @RpcDefaultString(description = "String accuracy (\"fine\", \"coarse\")", defaultValue = "coarse") String accuracy,
-      @RpcDefaultInteger(description = "minimum time between updates (milli-seconds)", defaultValue = 60000) Integer minUpdateTimeMs,
-      @RpcDefaultInteger(description = "minimum distance between updates (meters)", defaultValue = 30) Integer minUpdateDistanceM) {
-    Criteria criteria = new Criteria();
-    if (accuracy == "coarse") {
-      criteria.setAccuracy(Criteria.ACCURACY_COARSE);
-    } else if (accuracy == "fine") {
-      criteria.setAccuracy(Criteria.ACCURACY_FINE);
-    }
-    mLocationManager.requestLocationUpdates(mLocationManager.getBestProvider(criteria, true),
-        minUpdateTimeMs, minUpdateDistanceM, mLocationListener, mService.getMainLooper());
-  }
-
-  @Rpc(description = "Returns the current location.", returns = "A map of location information.")
-  // TODO(damonkohler): It might be nice to have a version of this method that
-  // automatically starts locating and keeps locating until no more requests are
-  // received for before some time out.
-  public Bundle readLocation() {
-    return mLocation;
-  }
-
-  @Rpc(description = "Stops collecting location data.")
-  public void stopLocating() {
-    mLocationManager.removeUpdates(mLocationListener);
-    mLocation = null;
-  }
-
-  @Rpc(description = "Returns the last known location of the device.", returns = "A map of location information.")
-  public Bundle getLastKnownLocation() {
-    Location location = mLocationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-    if (location == null) {
-      location = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-    }
-    return buildLocationBundle(location);
-  }
 
   @Rpc(description = "Returns a list of addresses for the given latitude and longitude.", returns = "A list of addresses.")
   public List<Address> geocode(
@@ -357,7 +174,7 @@ public class AndroidFacade implements RpcReceiver {
 
   @Rpc(description = "Starts an activity for result and returns the result.", returns = "A map of result values.")
   public Intent startActivityForResult(@RpcParameter("action") final String action,
-      @RpcOptionalString("uri") final String uri) {
+      @RpcOptionalString(description = "uri") final String uri) {
     Intent intent = new Intent(action);
     if (uri != null) {
       intent.setData(Uri.parse(uri));
@@ -381,7 +198,7 @@ public class AndroidFacade implements RpcReceiver {
 
   @Rpc(description = "Starts an activity for result and returns the result.", returns = "A map of result values.")
   public void startActivity(@RpcParameter("action") final String action,
-      @RpcOptionalString("uri") final String uri) {
+      @RpcOptionalString(description = "uri") final String uri) {
     Intent intent = new Intent(action);
     if (uri != null) {
       intent.setData(Uri.parse(uri));
@@ -581,10 +398,9 @@ public class AndroidFacade implements RpcReceiver {
     mService.stopSelf();
   }
 
-  private void postEvent(String name, Bundle bundle) {
-    Bundle event = new Bundle(bundle);
-    event.putString("name", name);
-    mEventBuffer.add(event);
+  @Rpc(description = "Returns an extra value that was specified in the launch intent.", returns = "The extra value.")
+  public Object getExtra(@RpcParameter("name") String name) {
+    return mIntent.getExtras().get(name);
   }
 
   @Rpc(description = "Returns a list of packages running activities or services.", returns = "List of packages running activities.")

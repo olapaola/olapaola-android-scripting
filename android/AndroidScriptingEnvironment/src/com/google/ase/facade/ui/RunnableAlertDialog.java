@@ -16,12 +16,17 @@
 
 package com.google.ase.facade.ui;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.AlertDialog.Builder;
 import android.content.DialogInterface;
 import android.content.Intent;
 
+import com.google.ase.exception.AseRuntimeException;
 import com.google.ase.future.FutureActivityTask;
 import com.google.ase.future.FutureIntent;
 
@@ -35,25 +40,45 @@ class RunnableAlertDialog extends FutureActivityTask implements RunnableDialog {
   private final String mTitle;
   private final String mMessage;
   private FutureIntent mResult;
-  private final String[] mButtonTexts;
   private Activity mActivity;
+  private CharSequence[] mItems;
+  private String mPositiveButtonText;
+  private String mNegativeButtonText;
+  private String mNeutralButtonText;
 
   public RunnableAlertDialog(String title, String message) {
     mTitle = title;
     mMessage = message;
-    mButtonTexts = new String[3];
+  }
+
+  public void setPositiveButtonText(String text) {
+    mPositiveButtonText = text;
+  }
+
+  public void setNegativeButtonText(String text) {
+    mNegativeButtonText = text;
+  }
+
+  public void setNeutralButtonText(String text) {
+    mNeutralButtonText = text;
   }
 
   /**
-   * Set button text.
+   * Set list items.
    *
-   * @param buttonNumber
-   *          button number
-   * @param text
-   *          button text
+   * @param Items
    */
-  public void setButton(int buttonNumber, String text) {
-    mButtonTexts[buttonNumber] = text;
+  public void setItems(JSONArray items) {
+    if (mItems == null) {
+      mItems = new CharSequence[items.length()];
+      for (int i = 0; i < items.length(); i++) {
+        try {
+          mItems[i] = items.getString(i);
+        } catch (JSONException e) {
+          throw new AseRuntimeException(e);
+        }
+      }
+    }
   }
 
   @Override
@@ -65,39 +90,76 @@ class RunnableAlertDialog extends FutureActivityTask implements RunnableDialog {
   public void run(final Activity activity, FutureIntent result) {
     mActivity = activity;
     mResult = result;
-    mDialog = new AlertDialog.Builder(activity).create();
-    mDialog.setTitle(mTitle);
-    mDialog.setMessage(mMessage);
-    DialogInterface.OnClickListener buttonListener = new DialogInterface.OnClickListener() {
-      @Override
-      public void onClick(DialogInterface dialog, int which) {
-        Intent intent = new Intent();
-        intent.putExtra("which", which);
-        mResult.set(intent);
-        // TODO(damonkohler): This leaves the dialog in the UiFacade map of dialogs. Memory leak.
-        mDialog.dismiss();
-        activity.finish();
-      }
-    };
-    if (mButtonTexts[0] != null) {
-      mDialog.setButton(mButtonTexts[0], buttonListener);
+    AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+    if (mTitle != null) {
+      builder.setTitle(mTitle);
     }
-    if (mButtonTexts[1] != null) {
-      mDialog.setButton2(mButtonTexts[1], buttonListener);
+    // Can't display both a message and items. We'll elect to show the items instead.
+    if (mMessage != null && mItems == null) {
+      builder.setMessage(mMessage);
     }
-    if (mButtonTexts[2] != null) {
-      mDialog.setButton3(mButtonTexts[2], buttonListener);
+    if (mItems != null) {
+      builder.setItems(mItems, new DialogInterface.OnClickListener() {
+        public void onClick(DialogInterface dialog, int item) {
+          Intent intent = new Intent();
+          intent.putExtra("item", item);
+          mResult.set(intent);
+          // TODO(damonkohler): This leaves the dialog in the UiFacade map of dialogs. Memory leak.
+          dialog.dismiss();
+          activity.finish();
+        }
+      });
     }
-    mDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+    configureButtons(builder, activity);
+    addOnCancelListener(builder, activity);
+    mDialog = builder.show();
+  }
+
+  private Builder addOnCancelListener(final AlertDialog.Builder builder, final Activity activity) {
+    return builder.setOnCancelListener(new DialogInterface.OnCancelListener() {
       @Override
       public void onCancel(DialogInterface dialog) {
         Intent intent = new Intent();
         intent.putExtra("canceled", true);
         mResult.set(intent);
+        // TODO(damonkohler): This leaves the dialog in the UiFacade map of dialogs. Memory leak.
+        dialog.dismiss();
         activity.finish();
       }
     });
-    mDialog.show();
+  }
+
+  private void configureButtons(final AlertDialog.Builder builder, final Activity activity) {
+    DialogInterface.OnClickListener buttonListener = new DialogInterface.OnClickListener() {
+      @Override
+      public void onClick(DialogInterface dialog, int which) {
+        Intent intent = new Intent();
+        switch (which) {
+          case DialogInterface.BUTTON_POSITIVE:
+            intent.putExtra("which", "positive");
+            break;
+          case DialogInterface.BUTTON_NEGATIVE:
+            intent.putExtra("which", "negative");
+            break;
+          case DialogInterface.BUTTON_NEUTRAL:
+            intent.putExtra("which", "neutral");
+            break;
+        }
+        mResult.set(intent);
+        // TODO(damonkohler): This leaves the dialog in the UiFacade map of dialogs. Memory leak.
+        dialog.dismiss();
+        activity.finish();
+      }
+    };
+    if (mNegativeButtonText != null) {
+      builder.setNegativeButton(mNegativeButtonText, buttonListener);
+    }
+    if (mPositiveButtonText != null) {
+      builder.setPositiveButton(mPositiveButtonText, buttonListener);
+    }
+    if (mNeutralButtonText != null) {
+      builder.setNeutralButton(mNeutralButtonText, buttonListener);
+    }
   }
 
   @Override

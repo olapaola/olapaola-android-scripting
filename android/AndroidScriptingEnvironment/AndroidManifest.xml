@@ -10,7 +10,8 @@
     android:label="@string/application_title"
     android:name=".AseApplication">
     <activity
-      android:name=".activity.ScriptManager">
+      android:name=".activity.ScriptManager"
+      android:launchMode="singleTask">
       <intent-filter>
         <action
           android:name="android.intent.action.MAIN" />
@@ -70,6 +71,9 @@
       android:name=".activity.ApiBrowser"
       android:configChanges="keyboardHidden|orientation" />
     <activity
+      android:name=".activity.TriggerManager"
+      android:configChanges="keyboardHidden|orientation" />
+    <activity
       android:name=".activity.InterpreterInstaller"
       android:configChanges="keyboardHidden|orientation" />
     <activity
@@ -98,9 +102,11 @@
     <service
       android:name=".activity.AseService" />
     <activity
-      android:name=".activity.InterpreterManager" />
+      android:name=".activity.InterpreterManager"
+      android:launchMode="singleTask" />
     <activity
-      android:name=".activity.LogcatViewer" />
+      android:name=".activity.LogcatViewer"
+      android:launchMode="singleTask" />
     <activity
       android:name=".activity.ScriptsLiveFolder"
       android:label="Scripts">
@@ -151,4 +157,5 @@
     android:name="android.permission.READ_LOGS" />
   <uses-sdk
     android:minSdkVersion="3"></uses-sdk>
+<uses-permission android:name="android.permission.WRITE_SETTINGS"></uses-permission>
 </manifest>

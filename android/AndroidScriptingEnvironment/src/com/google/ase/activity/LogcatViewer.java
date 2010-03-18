@@ -33,7 +33,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.ase.AseLog;
 import com.google.ase.R;
@@ -41,10 +40,11 @@ import com.google.ase.dialog.Help;
 
 public class LogcatViewer extends ListActivity {
 
+  private Handler mHandler;
   private List<String> mLogcatMessages;
   private int mOldLastPosition;
   private LogcatViewerAdapter mAdapter;
-  private Handler mHandler;
+  private Process mLogcatProcess;
 
   private static enum MenuId {
     HELP, PREFERENCES, JUMP_TO_BOTTOM;
@@ -54,11 +54,12 @@ public class LogcatViewer extends ListActivity {
   }
 
   private class LogcatWatcher implements Runnable {
+
     @Override
     public void run() {
       try {
-        Process logcat = Runtime.getRuntime().exec("logcat");
-        InputStreamReader isr = new InputStreamReader(logcat.getInputStream());
+        mLogcatProcess = Runtime.getRuntime().exec("logcat");
+        InputStreamReader isr = new InputStreamReader(mLogcatProcess.getInputStream());
         BufferedReader br = new BufferedReader(isr);
         String line;
         while ((line = br.readLine()) != null) {
@@ -93,22 +94,9 @@ public class LogcatViewer extends ListActivity {
     mAdapter = new LogcatViewerAdapter();
     mHandler = new Handler();
     setListAdapter(mAdapter);
-    Thread logcatWatcher = new Thread(new LogcatWatcher());
-    logcatWatcher.setPriority(Thread.NORM_PRIORITY - 1);
-    logcatWatcher.start();
-    new ActivityFlinger(getListView()) {
-      @Override
-      protected void right() {
-        Toast.makeText(LogcatViewer.this, "Script Manager", Toast.LENGTH_SHORT).show();
-        startActivity(new Intent(LogcatViewer.this, ScriptManager.class));
-      }
-
-      @Override
-      protected void left() {
-        Toast.makeText(LogcatViewer.this, "Interpreter Manager", Toast.LENGTH_SHORT).show();
-        startActivity(new Intent(LogcatViewer.this, InterpreterManager.class));
-      }
-    };
+    new ActivityFlinger.Builder()
+        .addLeftActivity(this, InterpreterManager.class, "Interpreter Manager")
+        .attachToView(getListView());
   }
 
   @Override
@@ -134,6 +122,25 @@ public class LogcatViewer extends ListActivity {
       startActivity(new Intent(this, AsePreferences.class));
     }
     return super.onOptionsItemSelected(item);
+  }
+
+  @Override
+  protected void onStart() {
+    mLogcatMessages.clear();
+    Thread logcatWatcher = new Thread(new LogcatWatcher());
+    logcatWatcher.setPriority(Thread.NORM_PRIORITY - 1);
+    logcatWatcher.start();
+    mAdapter.notifyDataSetInvalidated();
+    super.onStart();
+  }
+
+  @Override
+  protected void onPause() {
+    if (mLogcatProcess != null) {
+      AseLog.v("Logcat killed.");
+      mLogcatProcess.destroy();
+    }
+    super.onPause();
   }
 
   private class LogcatViewerAdapter extends BaseAdapter {

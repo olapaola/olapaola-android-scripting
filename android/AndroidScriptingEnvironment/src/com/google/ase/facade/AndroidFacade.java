@@ -57,12 +57,11 @@ import com.google.ase.activity.AseServiceHelper;
 import com.google.ase.exception.AseRuntimeException;
 import com.google.ase.future.FutureActivityTask;
 import com.google.ase.future.FutureIntent;
-import com.google.ase.jsonrpc.Rpc;
-import com.google.ase.jsonrpc.RpcDefaultInteger;
-import com.google.ase.jsonrpc.RpcDefaultString;
-import com.google.ase.jsonrpc.RpcOptionalString;
-import com.google.ase.jsonrpc.RpcParameter;
 import com.google.ase.jsonrpc.RpcReceiver;
+import com.google.ase.rpc.Rpc;
+import com.google.ase.rpc.RpcDefault;
+import com.google.ase.rpc.RpcOptional;
+import com.google.ase.rpc.RpcParameter;
 
 public class AndroidFacade implements RpcReceiver {
 
@@ -124,7 +123,7 @@ public class AndroidFacade implements RpcReceiver {
   public List<Address> geocode(
       @RpcParameter(name = "latitude") Double latitude,
       @RpcParameter(name = "longitude") Double longitude,
-      @RpcDefaultInteger(name = "maxResults", description = "max. no. of results", defaultValue = 1) Integer maxResults)
+      @RpcParameter(name = "maxResults", description = "max. no. of results") @RpcDefault("1") Integer maxResults)
       throws IOException {
     return mGeocoder.getFromLocation(latitude, longitude, maxResults);
   }
@@ -158,7 +157,7 @@ public class AndroidFacade implements RpcReceiver {
 
   @Rpc(description = "Starts an activity for result and returns the result.", returns = "A map of result values.")
   public Intent startActivityForResult(@RpcParameter(name = "action") final String action,
-      @RpcOptionalString(name = "uri") final String uri) {
+      @RpcParameter(name = "uri") @RpcOptional final String uri) {
     Intent intent = new Intent(action);
     if (uri != null) {
       intent.setData(Uri.parse(uri));
@@ -182,7 +181,7 @@ public class AndroidFacade implements RpcReceiver {
 
   @Rpc(description = "Starts an activity for result and returns the result.", returns = "A map of result values.")
   public void startActivity(@RpcParameter(name = "action") final String action,
-      @RpcOptionalString(name = "uri") final String uri) {
+      @RpcParameter(name = "uri") @RpcOptional final String uri) {
     Intent intent = new Intent(action);
     if (uri != null) {
       intent.setData(Uri.parse(uri));
@@ -211,7 +210,7 @@ public class AndroidFacade implements RpcReceiver {
 
   @Rpc(description = "Vibrates the phone or a specified duration in milliseconds.")
   public void vibrate(
-      @RpcDefaultInteger(name = "duration", description = "duration in milliseconds", defaultValue = 300) Integer duration) {
+      @RpcParameter(name = "duration", description = "duration in milliseconds") @RpcDefault("300") Integer duration) {
     mVibrator.vibrate(duration);
   }
 
@@ -280,23 +279,23 @@ public class AndroidFacade implements RpcReceiver {
 
   @Rpc(description = "Queries the user for a text input.")
   public String getInput(
-      @RpcDefaultString(name = "title", description = "title of the input box", defaultValue = "ASE Input") final String title,
-      @RpcDefaultString(name = "message", description = "message to display above the input box", defaultValue = "Please enter value:") final String message) {
+      @RpcParameter(name = "title", description = "title of the input box") @RpcDefault("ASE Input") final String title,
+      @RpcParameter(name = "message", description = "message to display above the input box") @RpcDefault("Please enter value:") final String message) {
     return getInputFromAlertDialog(title, message, false);
   }
 
   @Rpc(description = "Queries the user for a password.")
   public String getPassword(
-      @RpcDefaultString(name = "title", description = "title of the input box", defaultValue = "ASE Password Input") final String title,
-      @RpcDefaultString(name = "message", description = "message to display above the input box", defaultValue = "Please enter password:") final String message) {
+      @RpcParameter(name = "title", description = "title of the input box") @RpcDefault("ASE Password Input") final String title,
+      @RpcParameter(name = "message", description = "message to display above the input box") @RpcDefault("Please enter password:") final String message) {
     return getInputFromAlertDialog(title, message, true);
   }
 
   @Rpc(description = "Displays a notification that will be canceled when the user clicks on it.")
   public void notify(
       @RpcParameter(name = "message") String message,
-      @RpcDefaultString(name = "title", description = "title", defaultValue = "ASE Notification") final String title,
-      @RpcDefaultString(name = "ticker", description = "ticker", defaultValue = "ASE Notification") final String ticker) {
+      @RpcParameter(name = "title", description = "title") @RpcDefault("ASE Notification") final String title,
+      @RpcParameter(name = "ticker", description = "ticker") @RpcDefault("ASE Notification") final String ticker) {
     Notification notification =
         new Notification(R.drawable.ase_logo_48, ticker, System.currentTimeMillis());
     // This contentIntent is a noop.

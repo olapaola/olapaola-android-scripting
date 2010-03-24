@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.google.ase.jsonrpc;
+package com.google.ase.rpc;
 
 import java.lang.reflect.Type;
 

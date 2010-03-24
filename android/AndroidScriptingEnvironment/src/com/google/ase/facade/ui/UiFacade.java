@@ -29,12 +29,11 @@ import com.google.ase.AseApplication;
 import com.google.ase.activity.AseServiceHelper;
 import com.google.ase.exception.AseRuntimeException;
 import com.google.ase.future.FutureActivityTask;
-import com.google.ase.jsonrpc.Rpc;
-import com.google.ase.jsonrpc.RpcDefaultBoolean;
-import com.google.ase.jsonrpc.RpcDefaultInteger;
-import com.google.ase.jsonrpc.RpcOptionalString;
-import com.google.ase.jsonrpc.RpcParameter;
 import com.google.ase.jsonrpc.RpcReceiver;
+import com.google.ase.rpc.Rpc;
+import com.google.ase.rpc.RpcDefault;
+import com.google.ase.rpc.RpcOptional;
+import com.google.ase.rpc.RpcParameter;
 
 /**
  * UiFacade
@@ -59,10 +58,10 @@ public class UiFacade implements RpcReceiver {
   }
 
   @Rpc(description = "Create a spinner progress dialog.")
-  public void dialogCreateSpinnerProgress(@RpcOptionalString(name = "Title") String title,
-      @RpcOptionalString(name = "Message") String message,
-      @RpcDefaultInteger(name = "Maximum progress", defaultValue = 100) Integer max,
-      @RpcDefaultBoolean(name = "cancelable", defaultValue = false) Boolean cancelable) {
+  public void dialogCreateSpinnerProgress(@RpcParameter(name = "Title") @RpcOptional String title,
+      @RpcParameter(name = "Message") @RpcOptional String message,
+      @RpcParameter(name = "Maximum progress") @RpcDefault("100") Integer max,
+      @RpcParameter(name = "cancelable") @RpcDefault("false") Boolean cancelable) {
     dialogDismiss(); // Dismiss any existing dialog.
     mDialogTask =
         new RunnableProgressDialog(ProgressDialog.STYLE_SPINNER, max, title, message, cancelable);
@@ -70,18 +69,18 @@ public class UiFacade implements RpcReceiver {
 
   @Rpc(description = "Create a horizontal progress dialog.")
   public void dialogCreateHorizontalProgress(
-      @RpcOptionalString(name = "Title") String title,
-      @RpcOptionalString(name = "Message") String message,
-      @RpcDefaultInteger(name = "Maximum progress", defaultValue = 100) Integer max,
-      @RpcDefaultBoolean(name  = "cancelable", defaultValue = false) Boolean cancelable) {
+      @RpcParameter(name = "Title") @RpcOptional String title,
+      @RpcParameter(name = "Message") @RpcOptional String message,
+      @RpcParameter(name = "Maximum progress") @RpcDefault("100") Integer max,
+      @RpcParameter(name  = "cancelable") @RpcDefault("false") Boolean cancelable) {
     dialogDismiss(); // Dismiss any existing dialog.
     mDialogTask =
         new RunnableProgressDialog(ProgressDialog.STYLE_HORIZONTAL, max, title, message, cancelable);
   }
 
   @Rpc(description = "Create alert dialog.")
-  public void dialogCreateAlert(@RpcOptionalString(name = "Title") String title,
-      @RpcOptionalString(name = "Message") String message) {
+  public void dialogCreateAlert(@RpcParameter(name = "Title") @RpcOptional String title,
+      @RpcParameter(name = "Message") @RpcOptional String message) {
     dialogDismiss(); // Dismiss any existing dialog.
     mDialogTask = new RunnableAlertDialog(title, message);
   }

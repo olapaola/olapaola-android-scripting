@@ -1,12 +1,12 @@
 /*
  * Copyright (C) 2010 Google Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -14,7 +14,7 @@
  * the License.
  */
 
-package com.google.ase.jsonrpc;
+package com.google.ase.rpc;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -22,18 +22,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * This annotation marks a Double parameter as optional (a value of null will
- * be passed in if the Double is not defined).
+ * Use this annotation to mark RPC parameter as optional.
  * 
- * @author Felix Arends (felix.arends@gmail.com)
+ * <p>The parameter marked as optional has no default value.
  * 
+ * @author igor.v.karp@gmail.com (Igor Karp)
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.PARAMETER)
-public @interface RpcOptionalDouble {
-  /** Name of formal parameter. Must match name in Java file. */
-  public String name();
-
-  /** A description of the parameter. */
-  public String description() default "";
+public @interface RpcOptional {
 }

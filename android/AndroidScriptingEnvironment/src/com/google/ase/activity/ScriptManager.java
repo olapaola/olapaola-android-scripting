@@ -42,6 +42,7 @@ import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.google.ase.ActivityFlinger;
 import com.google.ase.AseAnalytics;
 import com.google.ase.AseLog;
 import com.google.ase.Constants;
@@ -55,7 +56,7 @@ import com.google.ase.interpreter.InterpreterConfiguration;
 
 /**
  * Manages creation, deletion, and execution of stored scripts.
- *
+ * 
  * @author Damon Kohler (damonkohler@gmail.com)
  */
 public class ScriptManager extends ListActivity {
@@ -71,7 +72,8 @@ public class ScriptManager extends ListActivity {
   private HashMap<Integer, Interpreter> addMenuIds;
 
   private static enum MenuId {
-    DELETE, EDIT, START_SERVICE, HELP, QRCODE_ADD, INTERPRETER_MANAGER, PREFERENCES, TRIGGER_MANAGER;
+    DELETE, EDIT, START_SERVICE, HELP, QRCODE_ADD, INTERPRETER_MANAGER, PREFERENCES, LOGCAT_VIEWER,
+    TRIGGER_MANAGER;
     public int getId() {
       return ordinal() + Menu.FIRST;
     }
@@ -88,10 +90,9 @@ public class ScriptManager extends ListActivity {
     mAdapter.registerDataSetObserver(new ScriptListObserver());
     setListAdapter(mAdapter);
     registerForContextMenu(getListView());
-    new ActivityFlinger.Builder()
-        .addRightActivity(this, InterpreterManager.class, "Interpreter Manager")
-        .attachToView(getListView());
     UsageTrackingConfirmation.show(this);
+    ActivityFlinger.attachView(getListView(), this);
+    ActivityFlinger.attachView(getWindow().getDecorView(), this);
     AseAnalytics.trackActivity(this);
   }
 
@@ -109,12 +110,14 @@ public class ScriptManager extends ListActivity {
     buildAddMenu(menu);
     menu.add(Menu.NONE, MenuId.INTERPRETER_MANAGER.getId(), Menu.NONE, "Interpreters").setIcon(
         android.R.drawable.ic_menu_more);
+    menu.add(Menu.NONE, MenuId.TRIGGER_MANAGER.getId(), Menu.NONE, "Triggers").setIcon(
+        android.R.drawable.ic_menu_more);
+    menu.add(Menu.NONE, MenuId.LOGCAT_VIEWER.getId(), Menu.NONE, "Logcat").setIcon(
+        android.R.drawable.ic_menu_more);
     menu.add(Menu.NONE, MenuId.PREFERENCES.getId(), Menu.NONE, "Preferences").setIcon(
         android.R.drawable.ic_menu_preferences);
     menu.add(Menu.NONE, MenuId.HELP.getId(), Menu.NONE, "Help").setIcon(
         android.R.drawable.ic_menu_help);
-    menu.add(Menu.NONE, MenuId.TRIGGER_MANAGER.getId(), Menu.NONE, "Trigger Manager").setIcon(
-        android.R.drawable.ic_menu_more);
     return true;
   }
 
@@ -162,6 +165,8 @@ public class ScriptManager extends ListActivity {
       startActivity(new Intent(this, AsePreferences.class));
     } else if (itemId == MenuId.TRIGGER_MANAGER.getId()) {
       startActivity(new Intent(this, TriggerManager.class));
+    } else if (itemId == MenuId.LOGCAT_VIEWER.getId()) {
+      startActivity(new Intent(this, LogcatViewer.class));
     }
     return true;
   }
@@ -219,7 +224,7 @@ public class ScriptManager extends ListActivity {
 
   /**
    * Opens the script for editing.
-   *
+   * 
    * @param scriptName
    *          the name of the script to edit
    */

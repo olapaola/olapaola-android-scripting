@@ -18,7 +18,6 @@ package com.google.ase.activity;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -34,7 +33,10 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
 
+import com.google.ase.ActivityFlinger;
+import com.google.ase.AseAnalytics;
 import com.google.ase.AseLog;
+import com.google.ase.AseProcess;
 import com.google.ase.R;
 import com.google.ase.dialog.Help;
 
@@ -44,7 +46,7 @@ public class LogcatViewer extends ListActivity {
   private List<String> mLogcatMessages;
   private int mOldLastPosition;
   private LogcatViewerAdapter mAdapter;
-  private Process mLogcatProcess;
+  private AseProcess mLogcatProcess;
 
   private static enum MenuId {
     HELP, PREFERENCES, JUMP_TO_BOTTOM;
@@ -57,10 +59,10 @@ public class LogcatViewer extends ListActivity {
 
     @Override
     public void run() {
+      mLogcatProcess = new AseProcess();
+      mLogcatProcess.start("/system/bin/logcat", null, null);
       try {
-        mLogcatProcess = Runtime.getRuntime().exec("logcat");
-        InputStreamReader isr = new InputStreamReader(mLogcatProcess.getInputStream());
-        BufferedReader br = new BufferedReader(isr);
+        BufferedReader br = mLogcatProcess.getIn();
         String line;
         while ((line = br.readLine()) != null) {
           mLogcatMessages.add(line);
@@ -80,7 +82,9 @@ public class LogcatViewer extends ListActivity {
           });
         }
       } catch (IOException e) {
-        AseLog.e("Logcat execution failed.");
+        AseLog.e("Failed to read from logcat process.", e);
+      } finally {
+        mLogcatProcess.kill();
       }
     }
   }
@@ -94,9 +98,9 @@ public class LogcatViewer extends ListActivity {
     mAdapter = new LogcatViewerAdapter();
     mHandler = new Handler();
     setListAdapter(mAdapter);
-    new ActivityFlinger.Builder()
-        .addLeftActivity(this, InterpreterManager.class, "Interpreter Manager")
-        .attachToView(getListView());
+    ActivityFlinger.attachView(getListView(), this);
+    ActivityFlinger.attachView(getWindow().getDecorView(), this);
+    AseAnalytics.trackActivity(this);
   }
 
   @Override
@@ -136,11 +140,8 @@ public class LogcatViewer extends ListActivity {
 
   @Override
   protected void onPause() {
-    if (mLogcatProcess != null) {
-      AseLog.v("Logcat killed.");
-      mLogcatProcess.destroy();
-    }
     super.onPause();
+    mLogcatProcess.kill();
   }
 
   private class LogcatViewerAdapter extends BaseAdapter {

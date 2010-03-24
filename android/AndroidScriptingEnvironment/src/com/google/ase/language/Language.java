@@ -19,8 +19,8 @@ package com.google.ase.language;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.google.ase.jsonrpc.ParameterDescriptor;
-import com.google.ase.jsonrpc.RpcInfo;
+import com.google.ase.rpc.MethodDescriptor;
+import com.google.ase.rpc.ParameterDescriptor;
 
 /**
  * Represents the programming language supported by the ASE.
@@ -66,12 +66,12 @@ public abstract class Language {
   }
 
   /** Returns the RPC call text with default parameter values. */
-  public final String getRpcText(String content, RpcInfo rpc) {
+  public final String getRpcText(String content, MethodDescriptor rpc) {
     return getRpcText(content, rpc, rpc.getDefaultParameterValues());
   }
   
   /** Returns the RPC call text with given parameter values. */
-  public final String getRpcText(String content, RpcInfo rpc, ParameterDescriptor[] parameters) {
+  public final String getRpcText(String content, MethodDescriptor rpc, ParameterDescriptor[] parameters) {
     return getMethodCallText(getRpcReceiverName(content), rpc.getName(), parameters);
   }
   

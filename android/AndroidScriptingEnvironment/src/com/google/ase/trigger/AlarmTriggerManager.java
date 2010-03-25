@@ -18,19 +18,25 @@ package com.google.ase.trigger;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.app.Service;
 import android.content.Context;
 
 import com.google.ase.IntentBuilders;
 
+/**
+ * A class keeping track of currently scheduled alarms in cooperation with the
+ * {@link TriggerRepository}.
+ * 
+ * @author Felix Arends (felix.arends@gmail.com)
+ * 
+ */
 public class AlarmTriggerManager {
   final AlarmManager mAlarmManager;
-  final Service mService;
+  final Context mContext;
   final TriggerRepository mTriggerRepository;
 
-  public AlarmTriggerManager(Service service, TriggerRepository triggerRepository) {
-    mAlarmManager = (AlarmManager) service.getSystemService(Context.ALARM_SERVICE);
-    mService = service;
+  public AlarmTriggerManager(Context context, TriggerRepository triggerRepository) {
+    mAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+    mContext = context;
     mTriggerRepository = triggerRepository;
   }
 
@@ -45,38 +51,51 @@ public class AlarmTriggerManager {
    * @param wakeUp
    *          wake up the device even when asleep
    */
-  public void scheduleInexactRepeating(Double interval, String script, boolean wakeUp) {
-    final PendingIntent pendingIntent = IntentBuilders.buildPendingIntent(mService, script);
+  public void scheduleInexactRepeating(double interval, String script, boolean wakeUp) {
+    final PendingIntent pendingIntent = IntentBuilders.buildPendingIntent(mContext, script);
     final int alarmType = wakeUp ? AlarmManager.RTC : AlarmManager.RTC_WAKEUP;
-
     mTriggerRepository.addTrigger(new InexactRepeatingAlarmTrigger(script, interval, wakeUp));
-
-    mAlarmManager.setInexactRepeating(alarmType, System.currentTimeMillis(),
+    long firstExecutionTime = System.currentTimeMillis() + convertSecondsToMilliseconds(interval);
+    mAlarmManager.setInexactRepeating(alarmType, firstExecutionTime,
         convertSecondsToMilliseconds(interval), pendingIntent);
   }
 
   /**
    * Schedules the repeated execution of a script.
    * 
-   * @param intervalS
+   * @param interval
    *          interval between executions, in seconds
    * @param script
    *          script to execute
-   * @param firstExecutionTimeS
-   *          time stamp of first time to execute the script, in seconds
    * @param wakeUp
    *          if true then the phone will wake up when the alarm goes off
    */
-  public void scheduleRepeating(Double intervalS, String script, Double firstExecutionTimeS,
-      boolean wakeUp) {
-    final PendingIntent pendingIntent = IntentBuilders.buildPendingIntent(mService, script);
+  public void scheduleRepeating(Double interval, String script, boolean wakeUp) {
+    final PendingIntent pendingIntent = IntentBuilders.buildPendingIntent(mContext, script);
     final int alarmType = wakeUp ? AlarmManager.RTC : AlarmManager.RTC_WAKEUP;
+    long firstExecutionTime = System.currentTimeMillis() + convertSecondsToMilliseconds(interval);
+    mTriggerRepository.addTrigger(new ExactRepeatingAlarmTrigger(interval, script,
+        convertMillisecondsToSeconds(firstExecutionTime), wakeUp));
+    mAlarmManager.setRepeating(alarmType, firstExecutionTime,
+        convertSecondsToMilliseconds(interval), pendingIntent);
+  }
 
-    mTriggerRepository.addTrigger(new RepeatingAlarmTrigger(intervalS, script, firstExecutionTimeS,
-        wakeUp));
+  /**
+   * Schedules the execution of a script at a specific point of time.
+   * 
+   * @param executionTimeS
+   *          time of execution, in seconds since epoch
+   * @param script
+   *          script to execute
+   * @param wakeup
+   *          whether or not to wakeup the phone if its asleep
+   */
+  public void schedule(Double executionTimeS, String script, boolean wakeup) {
+    final PendingIntent pendingIntent = IntentBuilders.buildPendingIntent(mContext, script);
+    final int alarmType = wakeup ? AlarmManager.RTC : AlarmManager.RTC_WAKEUP;
 
-    mAlarmManager.setRepeating(alarmType, convertSecondsToMilliseconds(firstExecutionTimeS),
-        convertSecondsToMilliseconds(intervalS), pendingIntent);
+    mTriggerRepository.addTrigger(new AlarmTrigger(executionTimeS, script));
+    mAlarmManager.set(alarmType, convertSecondsToMilliseconds(executionTimeS), pendingIntent);
   }
 
   /**
@@ -86,13 +105,13 @@ public class AlarmTriggerManager {
    *          name of the script whose scheduled invocation to cancel
    */
   public void cancelRepeating(final String script) {
-    final PendingIntent pendingIntent = IntentBuilders.buildPendingIntent(mService, script);
+    final PendingIntent pendingIntent = IntentBuilders.buildPendingIntent(mContext, script);
 
     mTriggerRepository.removeTriggers(new TriggerRepository.TriggerFilter() {
       @Override
       public boolean matches(Trigger trigger) {
-        if (trigger instanceof AlarmTrigger) {
-          return ((AlarmTrigger)trigger).getScriptName().compareToIgnoreCase(script) == 0;
+        if (trigger instanceof RepeatingAlarmTrigger) {
+          return ((RepeatingAlarmTrigger) trigger).getScriptName().compareToIgnoreCase(script) == 0;
         } else {
           return false;
         }
@@ -102,7 +121,11 @@ public class AlarmTriggerManager {
     mAlarmManager.cancel(pendingIntent);
   }
 
-  private long convertSecondsToMilliseconds(Double seconds) {
+  private long convertSecondsToMilliseconds(double seconds) {
     return (long) (seconds * 1000L);
+  }
+
+  private double convertMillisecondsToSeconds(long milliseconds) {
+    return milliseconds * 1000L;
   }
 }

@@ -19,11 +19,13 @@ package com.google.ase.activity;
 import java.util.List;
 
 import android.app.ListActivity;
-import android.content.Context;
+import android.content.Intent;
+import android.database.DataSetObserver;
 import android.os.Bundle;
 import android.view.ContextMenu;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.SubMenu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ContextMenu.ContextMenuInfo;
@@ -33,19 +35,30 @@ import android.widget.BaseAdapter;
 import com.google.ase.ActivityFlinger;
 import com.google.ase.AseAnalytics;
 import com.google.ase.AseLog;
+import com.google.ase.Constants;
 import com.google.ase.R;
-import com.google.ase.trigger.AlarmTrigger;
+import com.google.ase.dialog.DurationPickerDialog;
+import com.google.ase.dialog.Help;
+import com.google.ase.dialog.DurationPickerDialog.DurationPickedListener;
 import com.google.ase.trigger.AlarmTriggerManager;
-import com.google.ase.trigger.Trigger;
 import com.google.ase.trigger.TriggerRepository;
+import com.google.ase.trigger.TriggerRepository.TriggerInfo;
 
 public class TriggerManager extends ListActivity {
   private TriggerRepository mTriggerRepository;
   private AlarmTriggerManager mAlarmTriggerManager;
   private TriggerAdapter mAdapter;
+  private List<TriggerInfo> mTriggerInfoList;
 
   private static enum ContextMenuId {
     REMOVE;
+    public int getId() {
+      return ordinal() + Menu.FIRST;
+    }
+  }
+
+  private static enum MenuId {
+    SCHEDULE_REPEATING, HELP, SCHEDULE_INEXACT_REPEATING;
     public int getId() {
       return ordinal() + Menu.FIRST;
     }
@@ -59,11 +72,42 @@ public class TriggerManager extends ListActivity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.trigger_manager);
     mTriggerRepository = new TriggerRepository(this);
-    mAdapter = new TriggerAdapter(this, mTriggerRepository.getAllTriggers());
+    mAlarmTriggerManager = new AlarmTriggerManager(this, mTriggerRepository);
+    mTriggerInfoList = mTriggerRepository.getAllTriggers();
+    mAdapter = new TriggerAdapter();
+    mAdapter.registerDataSetObserver(new TriggerListObserver());
     setListAdapter(mAdapter);
+    registerForContextMenu(getListView());
     ActivityFlinger.attachView(getListView(), this);
     ActivityFlinger.attachView(getWindow().getDecorView(), this);
     AseAnalytics.trackActivity(this);
+  }
+
+  @Override
+  public boolean onCreateOptionsMenu(Menu menu) {
+    SubMenu subMenu = menu.addSubMenu("Add");
+    subMenu.setIcon(android.R.drawable.ic_menu_add);
+    subMenu.add(Menu.NONE, MenuId.SCHEDULE_REPEATING.getId(), Menu.NONE, "Repeating");
+    subMenu.add(Menu.NONE, MenuId.SCHEDULE_INEXACT_REPEATING.getId(), Menu.NONE,
+        "Power Efficient Repeating");
+    return true;
+  }
+
+  @Override
+  public boolean onOptionsItemSelected(MenuItem item) {
+    int itemId = item.getItemId();
+    if (itemId == MenuId.HELP.getId()) {
+      Help.show(this);
+    } else if (itemId == MenuId.SCHEDULE_REPEATING.getId()) {
+      Intent intent = new Intent(this, ScriptPicker.class);
+      intent.setAction(Intent.ACTION_PICK);
+      startActivityForResult(intent, 0);
+    } else if (itemId == MenuId.SCHEDULE_INEXACT_REPEATING.getId()) {
+      Intent intent = new Intent(this, ScriptPicker.class);
+      intent.setAction(Intent.ACTION_PICK);
+      startActivityForResult(intent, 1);
+    }
+    return true;
   }
 
   @Override
@@ -81,39 +125,36 @@ public class TriggerManager extends ListActivity {
       return false;
     }
 
-    Trigger trigger = (Trigger) mAdapter.getItem(info.position);
-    if (trigger == null) {
+    TriggerInfo triggerInfo = (TriggerInfo) mAdapter.getItem(info.position);
+    if (triggerInfo == null) {
       AseLog.v("No trigger selected.");
       return false;
     }
 
     if (item.getItemId() == ContextMenuId.REMOVE.getId()) {
-      if (trigger instanceof AlarmTrigger) {
-        mAlarmTriggerManager.cancelRepeating(((AlarmTrigger) trigger).getScriptName());
-      } else {
-        throw new RuntimeException("Unknown trigger type.");
-      }
+      mAlarmTriggerManager.cancelRepeating(triggerInfo.getTrigger().getScriptName());
     }
+    mAdapter.notifyDataSetInvalidated();
     return true;
   }
 
-  private static class TriggerAdapter extends BaseAdapter {
-    private final List<Trigger> triggers;
-    private final Context context;
-
-    public TriggerAdapter(Context context, List<Trigger> triggers) {
-      this.triggers = triggers;
-      this.context = context;
+  private class TriggerListObserver extends DataSetObserver {
+    @Override
+    public void onInvalidated() {
+      mTriggerInfoList = mTriggerRepository.getAllTriggers();
     }
+  }
+
+  private class TriggerAdapter extends BaseAdapter {
 
     @Override
     public int getCount() {
-      return triggers.size();
+      return mTriggerInfoList.size();
     }
 
     @Override
     public Object getItem(int position) {
-      return triggers.get(position);
+      return mTriggerInfoList.get(position);
     }
 
     @Override
@@ -123,8 +164,46 @@ public class TriggerManager extends ListActivity {
 
     @Override
     public View getView(final int position, View convertView, ViewGroup parent) {
-      return triggers.get(position).getView(context);
+      return mTriggerInfoList.get(position).getTrigger().getView(TriggerManager.this);
     }
   }
 
+  @Override
+  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (resultCode == RESULT_OK) {
+      final String scriptName = data.getStringExtra(Constants.EXTRA_SCRIPT_NAME);
+      switch (requestCode) {
+        case 0:
+          DurationPickerDialog.getDurationFromDialog(this, "Repeat every",
+              new DurationPickedListener() {
+                @Override
+                public void onSet(double duration) {
+                  mAlarmTriggerManager.scheduleRepeating(duration, scriptName, true);
+                  mAdapter.notifyDataSetInvalidated();
+                }
+
+                @Override
+                public void onCancel() {
+                }
+              });
+          break;
+        case 1:
+          DurationPickerDialog.getDurationFromDialog(this, "Repeat every",
+              new DurationPickedListener() {
+                @Override
+                public void onSet(double duration) {
+                  mAlarmTriggerManager.scheduleInexactRepeating(duration, scriptName, true);
+                  mAdapter.notifyDataSetInvalidated();
+                }
+
+                @Override
+                public void onCancel() {
+                }
+              });
+          break;
+        default:
+          break;
+      }
+    }
+  }
 }

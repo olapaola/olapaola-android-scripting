@@ -17,10 +17,15 @@
 package com.google.ase.trigger;
 
 
-public class InexactRepeatingAlarmTrigger extends RepeatingAlarmTrigger {
-  private static final long serialVersionUID = -9193318334645990578L;
+@SuppressWarnings("unused")
+public class ExactRepeatingAlarmTrigger extends RepeatingAlarmTrigger {
+  private static final long serialVersionUID = -9125118724160624255L;
 
-  public InexactRepeatingAlarmTrigger(String scriptName, Double interval, boolean wakeUp) {
-    super(scriptName, interval, wakeUp);
+  private final Double mFirstExecutionTimeS;
+
+  public ExactRepeatingAlarmTrigger(Double intervalS, String scriptName,
+      Double firstExecutionTimeS, boolean wakeUp) {
+    super(scriptName, intervalS, wakeUp);
+    mFirstExecutionTimeS = firstExecutionTimeS;
   }
 }

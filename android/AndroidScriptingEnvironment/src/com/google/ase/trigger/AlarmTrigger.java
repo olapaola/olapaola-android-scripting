@@ -16,36 +16,19 @@
 
 package com.google.ase.trigger;
 
-public abstract class AlarmTrigger implements Trigger {
-  private static final long serialVersionUID = 7610406773988708932L;
+public class AlarmTrigger extends Trigger {
+  private static final long serialVersionUID = 3175281973854075190L;
+  private final double mExecutionTime;
 
-  /** Name of the script to run. */
-  private final String mScriptName;
-
-  /** Interval between executions of the alarm, in seconds. */
-  private final Double mIntervalS;
-
-  /** Whether or not to wake up the device. */
-  private final boolean mWakeUp;
-
-  public AlarmTrigger(String scriptName, Double interval, boolean wakeUp) {
-    mScriptName = scriptName;
-    mIntervalS = interval;
-    mWakeUp = wakeUp;
+  public AlarmTrigger(double executionTime, String scriptName) {
+    super(scriptName);
+    mExecutionTime = executionTime;
   }
 
-  /** Returns the name of the script to execute. */
-  public String getScriptName() {
-    return mScriptName;
-  }
-
-  /** Returns the interval between executions in seconds. */
-  public Double getIntervalS() {
-    return mIntervalS;
-  }
-
-  /** Returns whether or not the device should be woken up by the alarm. */
-  public boolean shouldWakeUp() {
-    return mWakeUp;
+  /**
+   * Returns the execution time in seconds since epoch.
+   */
+  public double getExecutionTime() {
+    return mExecutionTime;
   }
 }

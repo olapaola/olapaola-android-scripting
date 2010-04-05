@@ -18,7 +18,6 @@ package com.google.ase.activity;
 
 import android.app.Activity;
 import android.view.Window;
-import android.view.WindowManager;
 import android.widget.TextView;
 
 import com.google.ase.AseVersion;
@@ -29,21 +28,12 @@ public class CustomizeWindow {
     // Utility class.
   }
 
-  public static void requestNoTitle(Activity activity) {
-    activity.requestWindowFeature(Window.FEATURE_NO_TITLE);
-  }
-
-  public static void requestFullscreen(Activity activity) {
-    requestNoTitle(activity);
-    activity.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-        WindowManager.LayoutParams.FLAG_FULLSCREEN);
-  }
-
-  public static void requestCustomTitle(Activity activity, int contentViewLayoutResId) {
+  public static void requestCustomTitle(Activity activity, String title, int contentViewLayoutResId) {
     activity.requestWindowFeature(Window.FEATURE_CUSTOM_TITLE);
     activity.setContentView(contentViewLayoutResId);
     activity.getWindow().setFeatureInt(Window.FEATURE_CUSTOM_TITLE, R.layout.title);
-    ((TextView) activity.findViewById(R.id.right_text)).setText("r"
+    ((TextView) activity.findViewById(R.id.left_text)).setText(title);
+    ((TextView) activity.findViewById(R.id.right_text)).setText("ASE r"
         + AseVersion.getVersion(activity));
   }
 }

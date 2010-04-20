@@ -30,6 +30,7 @@ import android.os.Bundle;
 import com.google.ase.AseLog;
 import com.google.ase.rpc.MethodDescriptor;
 import com.google.ase.rpc.RpcError;
+import com.google.ase.util.VisibleForTesting;
 
 /**
  * Instances of this class describe specific RPCs on the server. An RPC on the server is described
@@ -50,7 +51,8 @@ public final class RpcInfo {
    * Invokes the call that belongs to this object with the given parameters. Wraps the response
    * (possibly an exception) in a JSONObject.
    * 
-   * @param parameters {@code JSONArray} containing the parameters
+   * @param parameters
+   *          {@code JSONArray} containing the parameters
    * @return RPC response
    * @throws RpcError
    * @throws JSONException
@@ -64,22 +66,7 @@ public final class RpcInfo {
       final Type parameterType = parameterTypes[i];
       if (i < parameters.length()) {
         // Parameter is specified.
-        try {
-          // We must handle numbers explicitly because we cannot magically cast between them.
-          if (parameterType == Long.class) {
-            args[i] = parameters.getLong(i);
-          } else if (parameterType == Double.class) {
-            args[i] = parameters.getDouble(i);
-          } else if (parameterType == Integer.class) {
-            args[i] = parameters.getInt(i);
-          } else {
-            // Magically cast the parameter to the right Java type.
-            args[i] = ((Class<?>) parameterType).cast(parameters.get(i));
-          }
-        } catch (ClassCastException e) {
-          throw new RpcError("Argument " + (i + 1) + " should be of type "
-              + ((Class<?>) parameterType).getSimpleName() + ".");
-        }
+        args[i] = convertParameter(parameters, i, parameterType);
       } else if (MethodDescriptor.hasDefaultValue(annotations[i])) {
         args[i] = MethodDescriptor.getDefaultValue(parameterType, annotations[i]);
       } else {
@@ -102,6 +89,44 @@ public final class RpcInfo {
       return JsonRpcResult.result(JsonResultBuilders.buildJsonList((List<?>) result));
     } else {
       return JsonRpcResult.result(result);
+    }
+  }
+
+  /**
+   * Converts a parameter from JSON into a Java Object.
+   * 
+   * @return TODO
+   */
+  // TODO(damonkohler): This signature is a bit weird (auto-refactored). The obvious alternative
+  // would be to work on one supplied parameter and return the converted parameter. However, that's
+  // problematic because you lose the ability to call the getXXX methods on the JSON array.
+  @VisibleForTesting
+  static Object convertParameter(final JSONArray parameters, int index, Type type)
+      throws JSONException, RpcError {
+    try {
+      // We must handle null and numbers explicitly because we cannot magically cast them. We
+      // also need to convert implicitly from numbers to bools.
+      if (parameters.isNull(index)) {
+        return null;
+      } else if (type == Boolean.class) {
+        try {
+          return parameters.getBoolean(index);
+        } catch (JSONException e) {
+          return new Boolean(parameters.getInt(index) != 0);
+        }
+      } else if (type == Long.class) {
+        return parameters.getLong(index);
+      } else if (type == Double.class) {
+        return parameters.getDouble(index);
+      } else if (type == Integer.class) {
+        return parameters.getInt(index);
+      } else {
+        // Magically cast the parameter to the right Java type.
+        return ((Class<?>) type).cast(parameters.get(index));
+      }
+    } catch (ClassCastException e) {
+      throw new RpcError("Argument " + (index + 1) + " should be of type "
+          + ((Class<?>) type).getSimpleName() + ".");
     }
   }
 }

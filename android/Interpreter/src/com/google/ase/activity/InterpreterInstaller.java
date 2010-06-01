@@ -17,6 +17,7 @@
 package com.google.ase.activity;
 
 import java.io.File;
+import java.lang.reflect.Method;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -35,7 +36,7 @@ import com.google.ase.interpreter.InterpreterConfiguration;
  */
 public class InterpreterInstaller extends Activity {
 
-  private static final int MAX_CHMOD_RETRIES = 5;
+  private static final int PERMISSIONS = 0755;
 
   private String mName;
   private Interpreter mInterpreter;
@@ -224,48 +225,25 @@ public class InterpreterInstaller extends Activity {
     // Chmod up the directory tree to the top of our data directory.
     for (File pathPart = mInterpreter.getBinary(); pathPart != null
         && !pathPart.getName().equals("com.google.ase"); pathPart = pathPart.getParentFile()) {
-      if (!chmodWithRetries(pathPart, "755", MAX_CHMOD_RETRIES)) {
+      try {
+        int errno = chmod(pathPart, PERMISSIONS);
+        if (errno != 0) {
+          AseLog.e("chmod failed with errno " + errno + " for " + pathPart);
+          return false;
+        }
+      } catch (Exception e) {
+        AseLog.e(e);
         return false;
       }
     }
     return true;
   }
 
-  private boolean chmodWithRetries(File path, String mode, int times) {
-    boolean success = false;
-    for (int attemptNumber = 0; attemptNumber < MAX_CHMOD_RETRIES; attemptNumber++) {
-      if (chmod(path, mode)) {
-        success = true;
-        break;
-      }
-      try {
-        Thread.sleep(100);
-      } catch (InterruptedException e) {
-        AseLog.e(e);
-      }
-    }
-    return success;
-  }
-
-  private boolean chmod(File path, String mode) {
-    String[] command =
-        new String[] { "/system/bin/sh", "-c",
-          String.format("chmod %s %s", mode, path.getAbsolutePath()) };
-    Process process;
-    int exitValue;
-    try {
-      process = Runtime.getRuntime().exec(command);
-      exitValue = process.waitFor();
-    } catch (Exception e) {
-      AseLog.e(e);
-      return false;
-    }
-    if (exitValue != 0) {
-      AseLog.e(String.format("chmod %s %s exited with code %d", path.getAbsolutePath(), mode,
-          process.exitValue()));
-      return false;
-    }
-    return true;
+  private int chmod(File path, int mode) throws Exception {
+    Class<?> fileUtils = Class.forName("android.os.FileUtils");
+    Method setPermissions =
+        fileUtils.getMethod("setPermissions", String.class, int.class, int.class, int.class);
+    return (Integer) setPermissions.invoke(null, path.getAbsolutePath(), mode, -1, -1);
   }
 
   private void abort() {

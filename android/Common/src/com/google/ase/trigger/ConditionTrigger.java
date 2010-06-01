@@ -22,7 +22,7 @@ import android.os.Bundle;
 
 import com.google.ase.IntentBuilders;
 import com.google.ase.condition.Condition;
-import com.google.ase.condition.ConditionConfiguration;
+import com.google.ase.condition.ConditionFactory;
 
 /**
  * A {@link ConditionTrigger} object combines a trigger with a condition. When the condition fires,
@@ -34,19 +34,19 @@ import com.google.ase.condition.ConditionConfiguration;
 public class ConditionTrigger extends Trigger {
   private static final long serialVersionUID = 5415193311156216064L;
   private static final String EXTRA_CONDITION_STATE = "condition_state";
-  private final ConditionConfiguration mConditionConfiguration;
+
+  private final ConditionFactory mConditionFactory;
   private transient Condition mCondition;
 
   public ConditionTrigger(String scriptName, TriggerRepository.IdProvider idProvider,
-      ConditionConfiguration conditionConfiguration) {
+      ConditionFactory conditionFactory) {
     super(scriptName, idProvider);
-    mConditionConfiguration = conditionConfiguration;
+    mConditionFactory = conditionFactory;
   }
 
   @Override
   public void initializeTransients(final Context context) {
-    mCondition = mConditionConfiguration.getCondition(context);
-
+    mCondition = mConditionFactory.create(context);
     mCondition.addListener(new ConditionListener() {
       @Override
       public void run(Bundle state) {

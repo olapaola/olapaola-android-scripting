@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry excluding="doc" kind="src" path="src"/>
+	<classpathentry excluding="doc" kind="src" path="gen"/>
+	<classpathentry kind="con" path="com.android.ide.eclipse.adt.ANDROID_FRAMEWORK"/>
+	<classpathentry combineaccessrules="false" exported="true" kind="src" path="/Common"/>
+	<classpathentry combineaccessrules="false" exported="true" kind="src" path="/BluetoothFacade"/>
+	<classpathentry kind="lib" path="libs/locale_platform.jar"/>
+	<classpathentry kind="lib" path="/Common/libs/commons-codec-1.4.jar"/>
+	<classpathentry kind="lib" path="/Common/libs/libGoogleAnalytics.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/TextToSpeechFacade"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Interpreter"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/SignalStrengthFacade"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

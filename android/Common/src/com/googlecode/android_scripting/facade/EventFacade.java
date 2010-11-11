@@ -16,13 +16,17 @@
 
 package com.googlecode.android_scripting.facade;
 
+import com.google.common.collect.Lists;
 import com.googlecode.android_scripting.event.Event;
 import com.googlecode.android_scripting.future.FutureResult;
 import com.googlecode.android_scripting.jsonrpc.RpcReceiver;
 import com.googlecode.android_scripting.rpc.Rpc;
+import com.googlecode.android_scripting.rpc.RpcDefault;
+import com.googlecode.android_scripting.rpc.RpcDeprecated;
 import com.googlecode.android_scripting.rpc.RpcOptional;
 import com.googlecode.android_scripting.rpc.RpcParameter;
 
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -48,14 +52,27 @@ public class EventFacade extends RpcReceiver {
     mObserverList = new ConcurrentLinkedQueue<EventObserver>();
   }
 
-  @Rpc(description = "Receives the most recent event (i.e. location or sensor update, etc.) and removes it from the event buffer (which stores up to "
-      + MAX_QUEUE_SIZE + " most recent events).", returns = "Map of event properties.")
-  public Event receiveEvent() {
-    return mEventQueue.poll();
+  @Rpc(description = "Clears all events from the event buffer.")
+  public void eventClearBuffer() {
+    mEventQueue.clear();
+  }
+
+  @Rpc(description = "Returns and removes the oldest n events (i.e. location or sensor update, etc.) from the event buffer.", returns = "A List of Maps of event properties.")
+  public List<Event> eventPoll(
+      @RpcParameter(name = "number_of_events") @RpcDefault("1") Integer number_of_events) {
+    List<Event> events = Lists.newArrayList();
+    for (int i = 0; i < number_of_events; i++) {
+      Event event = mEventQueue.poll();
+      if (event == null) {
+        break;
+      }
+      events.add(event);
+    }
+    return events;
   }
 
   @Rpc(description = "Blocks until an event with the supplied name occurs. The returned event is not removed from the buffer.", returns = "Map of event properties.")
-  public Event waitForEvent(
+  public Event eventWaitFor(
       @RpcParameter(name = "eventName") final String eventName,
       @RpcParameter(name = "timeout", description = "the maximum time to wait") @RpcOptional Integer timeout)
       throws InterruptedException {
@@ -94,12 +111,32 @@ public class EventFacade extends RpcReceiver {
   }
 
   @Rpc(description = "Post an event to the event queue.")
-  public void postEvent(@RpcParameter(name = "name") String name,
+  public void eventPost(@RpcParameter(name = "name") String name,
       @RpcParameter(name = "data") String data) {
     postEvent(name, (Object) data);
   }
 
-  @Override
+  @RpcDeprecated("eventPost")
+  @Rpc(description = "Post an event to the event queue.")
+  public void postEvent(@RpcParameter(name = "name") String name,
+      @RpcParameter(name = "data") String data) {
+    postEvent(name, data);
+  }
+
+  @RpcDeprecated(value = "eventPoll")
+  @Rpc(description = "Returns and removes the oldest event (i.e. location or sensor update, etc.) from the event buffer.", returns = "Map of event properties.")
+  public Event receiveEvent() {
+    return mEventQueue.poll();
+  }
+  @RpcDeprecated("eventWaitFor")
+  @Rpc(description = "Blocks until an event with the supplied name occurs. The returned event is not removed from the buffer.", returns = "Map of event properties.")
+  public Event waitForEvent(
+      @RpcParameter(name = "eventName") final String eventName,
+      @RpcParameter(name = "timeout", description = "the maximum time to wait") @RpcOptional Integer timeout)
+      throws InterruptedException {
+    return eventWaitFor(eventName, timeout);
+  }
+  @Override
   public void shutdown() {
   }
 
